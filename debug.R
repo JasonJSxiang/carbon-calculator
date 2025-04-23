@@ -9,6 +9,18 @@ library(shinydashboard)
 library(plotly)
 
 
+# Initialise database ------------------------------------------------------------
+con <- dbConnect(SQLite(), "database/database.sqlite")
+dbExecute(con, "CREATE TABLE IF NOT EXISTS grid_mix_emission_factor 
+          (Country TEXT,
+          City TEXT,
+          Coal REAL,
+          Oil REAL,
+          Gas REAL,
+          Nuclear REAL,
+          Renewables REAL)")
+dbDisconnect(con)
+
 # Global variables -------------------------------------------------------
 #(code only run once when the app starts)
 
@@ -92,6 +104,18 @@ ui <- dashboardPage(
 )
 
 server <- function(input, output, session) {
+    
+    # Establish connection with database pool
+    pool <- dbPool(
+        SQLite(),
+        dbname = "database/database.sqlite"
+    )
+    
+    # disconnect the pool when ending the session
+    onStop(function() {
+        poolClose(pool)
+    })
+    
     
     
     # dashboard body (dynamic) ----------------------------------------------------
@@ -1259,21 +1283,34 @@ server <- function(input, output, session) {
     })
     
     # initialise an empty table
-    ele_grid_mix_table <- reactiveVal({
+    ele_grid_mix_table <- reactiveVal(NULL)
+    
+    # create function that loads database
+    load_grid_mix_emission_factor_table <- function() {
+        # first load the existing data
+        data <- dbGetQuery(pool, "SELECT *
+                           FROM grid_mix_emission_factor")
         
-        tibble(
-            Country = character(0),
-            City = character(0),
-            Coal = numeric(0),
-            Oil = numeric(0),
-            Gas = numeric(0),
-            Nuclear = numeric(0),
-            Renewables = numeric(0)
-        )
+        # then pass the existing data to a reactive function in R
+        ele_grid_mix_table(data)
         
-        
+    }
+    
+    
+    
+    # initialise the database
+    observe({
+        load_grid_mix_emission_factor_table()
     })
     
+    # render the table
+    output$ele_grid_mix_table <- renderDT({
+        datatable(ele_grid_mix_table(),
+                  selection = "single",
+                  options = list(dom = 't'))
+    })
+    
+    # add record workflow
     observeEvent(input$add_record_grid_mix_emission_factor, {
         
         if(input$grid_mix_ui_selection_button == "Country-level") {
@@ -1311,8 +1348,8 @@ server <- function(input, output, session) {
                 Coal = input$coal_mix_emission_factor,
                 Oil = input$oil_mix_emission_factor,
                 Gas = input$gas_mix_emission_factor,
-                Nuclear = input$nuclear_emission_factor,
-                Renewables = input$renewables_emission_factor
+                Nuclear = input$nuclear_mix_emission_factor,
+                Renewables = input$renewables_mix_emission_factor
             )
             
         } else
@@ -1353,14 +1390,17 @@ server <- function(input, output, session) {
                     Coal = input$coal_mix_emission_factor,
                     Oil = input$oil_mix_emission_factor,
                     Gas = input$gas_mix_emission_factor,
-                    Nuclear = input$nuclear_emission_factor,
-                    Renewables = input$renewables_emission_factor
+                    Nuclear = input$nuclear_mix_emission_factor,
+                    Renewables = input$renewables_mix_emission_factor
                 )
             }
         
         
-        # pass the new table to the reactive function
-        ele_grid_mix_table(new_table)
+        # update the data with the new table
+        dbWriteTable(pool, "grid_mix_emission_factor", new_table, append = TRUE)
+        
+        # refresh the table
+        load_grid_mix_emission_factor_table()
         
         # clear the input fields
         updateSelectInput(
@@ -1468,12 +1508,7 @@ server <- function(input, output, session) {
     
     ## emission factor table ####
     
-    # grid mix table
-    output$ele_grid_mix_table <- renderDT({
-        datatable(ele_grid_mix_table(),
-                  selection = "single",
-                  options = list(dom = 't'))
-    })
+    
     
     ## FERA table
     output$FERA_emission_factor_table <- renderDT({

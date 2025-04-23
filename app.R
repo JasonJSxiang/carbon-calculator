@@ -1,18 +1,25 @@
 library(DBI)
 library(RSQLite)
+library(pool)
 library(shiny)
 library(tidyverse)
 library(DT)
 library(maps)
 library(shinydashboard)
-library(uuid)
 library(plotly)
 
 
-# Establish connection ----------------------------------------------------
-
-
-
+# Initialise database ------------------------------------------------------------
+con <- dbConnect(SQLite(), "database/database.sqlite")
+dbExecute(con, "CREATE TABLE IF NOT EXISTS grid_mix_emission_factor 
+          (Country TEXT,
+          City TEXT,
+          Coal REAL,
+          Oil REAL,
+          Gas REAL,
+          Nuclear REAL,
+          Renewables REAL)")
+dbDisconnect(con)
 
 # Global variables -------------------------------------------------------
 #(code only run once when the app starts)
@@ -97,6 +104,18 @@ ui <- dashboardPage(
 )
 
 server <- function(input, output, session) {
+    
+    # Establish connection with database pool
+    pool <- dbPool(
+        SQLite(),
+        dbname = "database/database.sqlite"
+    )
+    
+    # disconnect the pool when ending the session
+    onStop(function() {
+        poolClose(pool)
+    })
+    
     
     
     # dashboard body (dynamic) ----------------------------------------------------
@@ -442,7 +461,6 @@ server <- function(input, output, session) {
     observeEvent(input$add_record_building_asset, {
         # Create a new record
         new_record <- tibble(
-            "ID" = UUIDgenerate(),
             "Asset Type" = "Building",
             "Asset Name" = input$building_asset_name_asset,
             "Office Floor Area" = input$office_area_asset,
@@ -524,7 +542,6 @@ server <- function(input, output, session) {
     observeEvent(input$add_record_vehicle_asset, {
         # Create a new record
         new_record <- tibble(
-            "ID" = UUIDgenerate(),
             "Asset Type" = "Vehicle",
             "Asset Name" = input$vehicle_asset_name_asset,
             "Vehicle Type" = input$vehicle_type_asset,
@@ -790,7 +807,6 @@ server <- function(input, output, session) {
     observeEvent(input$add_building_record_emission_record, {
         # create a new record with the submitted values
         new_record <- tibble(
-            "ID" = UUIDgenerate(),
             "Asset Name" = input$building_asset_emission_record,
             "Reporting Year" = input$building_year_emission_record,
             "Fuel Type" = input$fuel_select_building_emission_record,
@@ -992,7 +1008,6 @@ server <- function(input, output, session) {
     observeEvent(input$add_vehicle_record_emission_record, {
         # create a new record with the submitted values
         new_record <- tibble(
-            "ID" = UUIDgenerate(),
             "Asset Name" = input$vehicle_asset_emission_record,
             "Reporting Year" = input$vehicle_year_emission_record,
             "Fuel Type" = input$fuel_select_vehicle_emission_record,
@@ -1268,21 +1283,34 @@ server <- function(input, output, session) {
     })
     
     # initialise an empty table
-    ele_grid_mix_table <- reactiveVal({
+    ele_grid_mix_table <- reactiveVal(NULL)
+    
+    # create function that loads database
+    load_grid_mix_emission_factor_table <- function() {
+        # first load the existing data
+        data <- dbGetQuery(pool, "SELECT *
+                           FROM grid_mix_emission_factor")
         
-        tibble(
-            Country = character(0),
-            City = character(0),
-            Coal = numeric(0),
-            Oil = numeric(0),
-            Gas = numeric(0),
-            Nuclear = numeric(0),
-            Renewables = numeric(0)
-        )
+        # then pass the existing data to a reactive function in R
+        ele_grid_mix_table(data)
         
-        
+    }
+    
+    
+    
+    # initialise the database
+    observe({
+        load_grid_mix_emission_factor_table()
     })
     
+    # render the table
+    output$ele_grid_mix_table <- renderDT({
+        datatable(ele_grid_mix_table(),
+                  selection = "single",
+                  options = list(dom = 't'))
+    })
+    
+    # add record workflow
     observeEvent(input$add_record_grid_mix_emission_factor, {
         
         if(input$grid_mix_ui_selection_button == "Country-level") {
@@ -1320,8 +1348,8 @@ server <- function(input, output, session) {
                 Coal = input$coal_mix_emission_factor,
                 Oil = input$oil_mix_emission_factor,
                 Gas = input$gas_mix_emission_factor,
-                Nuclear = input$nuclear_emission_factor,
-                Renewables = input$renewables_emission_factor
+                Nuclear = input$nuclear_mix_emission_factor,
+                Renewables = input$renewables_mix_emission_factor
             )
             
         } else
@@ -1362,14 +1390,17 @@ server <- function(input, output, session) {
                     Coal = input$coal_mix_emission_factor,
                     Oil = input$oil_mix_emission_factor,
                     Gas = input$gas_mix_emission_factor,
-                    Nuclear = input$nuclear_emission_factor,
-                    Renewables = input$renewables_emission_factor
+                    Nuclear = input$nuclear_mix_emission_factor,
+                    Renewables = input$renewables_mix_emission_factor
                 )
             }
         
         
-        # pass the new table to the reactive function
-        ele_grid_mix_table(new_table)
+        # update the data with the new table
+        dbWriteTable(pool, "grid_mix_emission_factor", new_table, append = TRUE)
+        
+        # refresh the table
+        load_grid_mix_emission_factor_table()
         
         # clear the input fields
         updateSelectInput(
@@ -1444,7 +1475,7 @@ server <- function(input, output, session) {
     output$asset_table_building <- renderDT({
         datatable(
             asset_table_building() |> 
-                select(-c(ID, `Creation Time`)
+                select(-c(`Creation Time`)
                 ),
             selection = "single")
     })
@@ -1453,7 +1484,7 @@ server <- function(input, output, session) {
     output$asset_table_vehicle <- renderDT({
         datatable(
             asset_table_vehicle() |> 
-                select(-c(ID, `Creation Time`)
+                select(-c(`Creation Time`)
                 ), 
             selection = "single")
     })
@@ -1464,25 +1495,20 @@ server <- function(input, output, session) {
     # building table
     output$building_table_emission_record <- renderDT({
         datatable(building_table_emission_record() |> 
-                      select(-c(ID, `Creation Time`)),
+                      select(-c(`Creation Time`)),
                   selection = "single")
     })
     
     # vehicle table 
     output$vehicle_table_emission_record <- renderDT({
         datatable(vehicle_table_emission_record() |> 
-                      select(-c(ID, `Creation Time`)),
+                      select(-c(`Creation Time`)),
                   selection = "single")
     })
     
     ## emission factor table ####
     
-    # grid mix table
-    output$ele_grid_mix_table <- renderDT({
-        datatable(ele_grid_mix_table(),
-                  selection = "single",
-                  options = list(dom = 't'))
-    })
+    
     
     ## FERA table
     output$FERA_emission_factor_table <- renderDT({
