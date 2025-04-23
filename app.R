@@ -9,6 +9,11 @@ library(uuid)
 library(plotly)
 
 
+# Establish connection ----------------------------------------------------
+
+
+
+
 # Global variables -------------------------------------------------------
 #(code only run once when the app starts)
 

@@ -1,11 +1,11 @@
 library(DBI)
 library(RSQLite)
+library(pool)
 library(shiny)
 library(tidyverse)
 library(DT)
 library(maps)
 library(shinydashboard)
-library(uuid)
 library(plotly)
 
 
@@ -437,7 +437,6 @@ server <- function(input, output, session) {
     observeEvent(input$add_record_building_asset, {
         # Create a new record
         new_record <- tibble(
-            "ID" = UUIDgenerate(),
             "Asset Type" = "Building",
             "Asset Name" = input$building_asset_name_asset,
             "Office Floor Area" = input$office_area_asset,
@@ -519,7 +518,6 @@ server <- function(input, output, session) {
     observeEvent(input$add_record_vehicle_asset, {
         # Create a new record
         new_record <- tibble(
-            "ID" = UUIDgenerate(),
             "Asset Type" = "Vehicle",
             "Asset Name" = input$vehicle_asset_name_asset,
             "Vehicle Type" = input$vehicle_type_asset,
@@ -785,7 +783,6 @@ server <- function(input, output, session) {
     observeEvent(input$add_building_record_emission_record, {
         # create a new record with the submitted values
         new_record <- tibble(
-            "ID" = UUIDgenerate(),
             "Asset Name" = input$building_asset_emission_record,
             "Reporting Year" = input$building_year_emission_record,
             "Fuel Type" = input$fuel_select_building_emission_record,
@@ -987,7 +984,6 @@ server <- function(input, output, session) {
     observeEvent(input$add_vehicle_record_emission_record, {
         # create a new record with the submitted values
         new_record <- tibble(
-            "ID" = UUIDgenerate(),
             "Asset Name" = input$vehicle_asset_emission_record,
             "Reporting Year" = input$vehicle_year_emission_record,
             "Fuel Type" = input$fuel_select_vehicle_emission_record,
@@ -1439,7 +1435,7 @@ server <- function(input, output, session) {
     output$asset_table_building <- renderDT({
         datatable(
             asset_table_building() |> 
-                select(-c(ID, `Creation Time`)
+                select(-c(`Creation Time`)
                 ),
             selection = "single")
     })
@@ -1448,7 +1444,7 @@ server <- function(input, output, session) {
     output$asset_table_vehicle <- renderDT({
         datatable(
             asset_table_vehicle() |> 
-                select(-c(ID, `Creation Time`)
+                select(-c(`Creation Time`)
                 ), 
             selection = "single")
     })
@@ -1459,14 +1455,14 @@ server <- function(input, output, session) {
     # building table
     output$building_table_emission_record <- renderDT({
         datatable(building_table_emission_record() |> 
-                      select(-c(ID, `Creation Time`)),
+                      select(-c(`Creation Time`)),
                   selection = "single")
     })
     
     # vehicle table 
     output$vehicle_table_emission_record <- renderDT({
         datatable(vehicle_table_emission_record() |> 
-                      select(-c(ID, `Creation Time`)),
+                      select(-c(`Creation Time`)),
                   selection = "single")
     })
     
