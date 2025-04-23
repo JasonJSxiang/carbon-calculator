@@ -11,7 +11,8 @@ library(plotly)
 
 # Initialise database ------------------------------------------------------------
 con <- dbConnect(SQLite(), "database/database.sqlite")
-dbExecute(con, "CREATE TABLE IF NOT EXISTS grid_mix_emission_factor 
+dbExecute(con, 
+          "CREATE TABLE IF NOT EXISTS grid_mix_emission_factor  
           (Country TEXT,
           City TEXT,
           Coal REAL,
@@ -19,6 +20,52 @@ dbExecute(con, "CREATE TABLE IF NOT EXISTS grid_mix_emission_factor
           Gas REAL,
           Nuclear REAL,
           Renewables REAL)")
+
+dbExecute(con,
+          "CREATE TABLE IF NOT EXISTS asset_building
+          (\"Asset Type\" TEXT,
+          \"Asset Name\" TEXT,
+          \"Office Floor Area\" REAL,
+          \"Area Unit\" TEXT,
+          \"Subleased?\" INTEGER,
+          \"Applicable Emission Sources\" TEXT,
+          \"Creation Time\" REAL)")
+
+dbExecute(con,
+          "CREATE TABLE IF NOT EXISTS asset_vehicle
+          (\"Asset Type\" TEXT,
+          \"Asset Name\" TEXT,
+          \"Vehicle Type\" TEXT,
+          \"Creation Time\" REAL)")
+
+dbExecute(con,
+          "CREATE TABLE IF NOT EXISTS emission_record_building
+          (\"Asset Name\" TEXT,
+          \"Reporting Year\" INTEGER,
+          \"Fuel Type\" TEXT,
+          Consumption REAL,
+          Unit TEXT,
+          \"Renewable?\" TEXT,
+          \"Renewable Energy Consumption (kWh)\" REAL,
+          \"Renewable Energy Type\" TEXT,
+          \"Start Date\" REAL,
+          \"End Date\" REAL,
+          \"Additional Comment\" TEXT,
+          \"Creation Time\" REAL)")
+
+dbExecute(con,
+          "CREATE TABLE IF NOT EXISTS emission_record_vehicle
+          (\"Asset Name\" TEXT,
+          \"Reporting Year\" INTEGER,
+          \"Fuel Type\" TEXT,
+          \"Data Type\" TEXT,
+          Amount REAL,
+          Unit TEXT,
+          \"Start Date\" REAL,
+          \"End Date\" REAL,
+          \"Additional Comment\" TEXT,
+          \"Creation Time\" REAL)")
+
 dbDisconnect(con)
 
 # Global variables -------------------------------------------------------
@@ -444,20 +491,27 @@ server <- function(input, output, session) {
     
     #### building ####
     
-    # empty table
-    asset_table_building <- reactiveVal(
-        tibble(
-            "ID" = character(0), 
-            "Asset Name" = character(0),
-            "Asset Type" = character(0),
-            "Office Floor Area" = numeric(0),
-            "Area Unit" = character(0),
-            "Subleased?" = logical(0),
-            "Applicable Emission Sources" = character(0),
-            "Creation Time" = as.POSIXct(NA)
-        )
-    )
+    # initialise an empty table
+    asset_table_building <- reactiveVal(NULL)
     
+    # create a function that loads database into R (through updating the
+    # existing NULL reactive value created above)
+    load_asset_building <- function() {
+        # first load the existing data from the database
+        data <- dbGetQuery(pool,
+                           "SELECT *
+                           FROM asset_building")
+        
+        # then pass loaded data to the NULL reactive function just created
+        asset_table_building(data)
+    }
+    
+    # initialise the database (by running the above function when the app starts)
+    observe({
+        load_asset_building()
+    })
+    
+    # record-adding workflow
     observeEvent(input$add_record_building_asset, {
         # Create a new record
         new_record <- tibble(
@@ -496,11 +550,14 @@ server <- function(input, output, session) {
             return()
         }
         
-        # update the reactive table
-        asset_table_building(bind_rows(existing_data, new_record))
+        # update the database by appending the new record
+        dbWriteTable(pool, "asset_building", new_record, append = TRUE)
         showNotification("New building record added",
                          type = "message",
                          closeButton = TRUE)
+        
+        # refresh the table showing in R by running the loading function again
+        load_asset_building()
         
         # clear inputs
         updateTextInput(session,
@@ -528,15 +585,25 @@ server <- function(input, output, session) {
     #### vehicle ####
     
     # empty table
-    asset_table_vehicle <- reactiveVal(
-        tibble(
-            "ID" = character(0),
-            "Asset Name" = character(0),
-            "Asset Type" = character(0),
-            "Vehicle Type" = character(0),
-            "Creation Time" = as.POSIXct(NA)
-        )
-    )
+    asset_table_vehicle <- reactiveVal(NULL)
+    
+    # create a function that loads database into R (through updating the
+    # existing NULL reactive value created above)
+    load_asset_vehicle <- function() {
+        # first load the existing data from the database
+        data <- dbGetQuery(pool,
+                           "SELECT *
+                           FROM asset_vehicle")
+        
+        # then pass loaded data to the NULL reactive function just created
+        asset_table_vehicle(data)
+    }
+    
+    # initialise the database (by running the above function when the app starts)
+    observe({
+        load_asset_vehicle()
+    })
+    
     
     # observe event to add new record
     observeEvent(input$add_record_vehicle_asset, {
@@ -571,11 +638,14 @@ server <- function(input, output, session) {
             return()
         }
         
-        # update the reactive table
-        asset_table_vehicle(bind_rows(existing_data, new_record))
-        showNotification("New vehicle record added", 
+        # update the database by appending the new record
+        dbWriteTable(pool, "asset_vehicle", new_record, append = TRUE)
+        showNotification("New vehicle record added",
                          type = "message",
                          closeButton = TRUE)
+        
+        # refresh the table showing in R by running the loading function again
+        load_asset_vehicle()
         
         # clear inputs
         updateTextInput(session,
@@ -784,24 +854,21 @@ server <- function(input, output, session) {
     ### building ####
     
     # initial table for building emission record
-    building_table_emission_record <- reactiveVal(
-        tibble(
-            "ID" = character(0),
-            "Asset Name" = character(0),
-            "Reporting Year" = character(0),
-            "Fuel Type" = character(0),
-            "Consumption" = numeric(0),
-            "Unit" = character(0),
-            "Renewable?" = character(0),
-            "Renewable Energy Consumption (kWh)" = numeric(0),
-            "Renewable Energy Type" = character(0),
-            "Start Date" = as.Date(numeric(0)),
-            "End Date" = as.Date(numeric(0)),
-            "Additional Comment" = character(0),
-            "Creation Time" = as.POSIXct(NA)
-        )
-    )
+    building_table_emission_record <- reactiveVal(NULL)
     
+    # function to cache database
+    load_emission_record_building <- function() {
+        data <- dbGetQuery(pool,
+                           "SELECT *
+                           FROM emission_record_building")
+        
+        building_table_emission_record(data)
+    }
+    
+    # initialise the database at the start
+    observe({
+        load_emission_record_building()
+    })
     
     # Add new record: Building
     observeEvent(input$add_building_record_emission_record, {
@@ -879,7 +946,8 @@ server <- function(input, output, session) {
                 }
             } 
         }
-        else {} # case for non-electricity, no operations needed, proceed to the next step
+        else {} # case for non-electricity, no operations needed, proceed to 
+        # the next step
         
         
         # check for duplicate record
@@ -893,7 +961,7 @@ server <- function(input, output, session) {
             
         )
         
-        # warning message
+        # warning message for duplicate record exists
         if (duplicate) {
             showNotification("Record already exists!", 
                              type = "warning")
@@ -937,10 +1005,12 @@ server <- function(input, output, session) {
         
         
         # update the reactive value with new record
-        updated_table <- building_table_emission_record() |> 
-            bind_rows(new_record)
+        dbWriteTable(pool,
+                     "emission_record_building",
+                     new_record, append = TRUE)
         
-        building_table_emission_record(updated_table)
+        # refresh the table
+        load_emission_record_building()
         
         showNotification("New building emission record added", 
                          type = "message",
@@ -987,21 +1057,22 @@ server <- function(input, output, session) {
     ### vehicle ####
     
     # initial table for vehicle emission record
-    vehicle_table_emission_record <- reactiveVal(
-        tibble(
-            "ID" = character(0),
-            "Asset Name" = character(0),
-            "Reporting Year" = character(0),
-            "Fuel Type" = character(0),
-            "Data Type" = character(0),
-            "Amount" = numeric(0),
-            "Unit" = character(0),
-            "Start Date" = as.Date(numeric(0)),
-            "End Date" = as.Date(numeric(0)),
-            "Additional Comment" = character(0),
-            "Creation Time" = as.POSIXct(NA)
-        )
-    )
+    vehicle_table_emission_record <- reactiveVal(NULL)
+    
+    # create function to cache database 
+    load_emission_record_vehicle <- function() {
+        data <- dbGetQuery(pool,
+                           "SELECT *
+                           FROM emission_record_vehicle")
+        
+        vehicle_table_emission_record(data)
+    }
+    
+    # initialise the database
+    observe({
+        load_emission_record_vehicle()
+    })
+    
     
     
     # Add new record: Vehicle
@@ -1092,11 +1163,15 @@ server <- function(input, output, session) {
         }
         
         # update the reactive value with new record
-        updated_table <- vehicle_table_emission_record() |> 
-            bind_rows(new_record)
+        dbWriteTable(pool,
+                     "emission_record_vehicle",
+                     new_record,
+                     append = TRUE)
         
-        vehicle_table_emission_record(updated_table)
+        # refresh the table in the database by running the function 
+        load_emission_record_vehicle()
         
+        # show msg that record has been added
         showNotification("New vehicle emission record added",
                          type = "message",
                          closeButton = TRUE)
@@ -1286,7 +1361,7 @@ server <- function(input, output, session) {
     ele_grid_mix_table <- reactiveVal(NULL)
     
     # create function that loads database
-    load_grid_mix_emission_factor_table <- function() {
+    load_grid_mix_emission_factor <- function() {
         # first load the existing data
         data <- dbGetQuery(pool, "SELECT *
                            FROM grid_mix_emission_factor")
@@ -1300,14 +1375,7 @@ server <- function(input, output, session) {
     
     # initialise the database
     observe({
-        load_grid_mix_emission_factor_table()
-    })
-    
-    # render the table
-    output$ele_grid_mix_table <- renderDT({
-        datatable(ele_grid_mix_table(),
-                  selection = "single",
-                  options = list(dom = 't'))
+        load_grid_mix_emission_factor()
     })
     
     # add record workflow
@@ -1400,7 +1468,7 @@ server <- function(input, output, session) {
         dbWriteTable(pool, "grid_mix_emission_factor", new_table, append = TRUE)
         
         # refresh the table
-        load_grid_mix_emission_factor_table()
+        load_grid_mix_emission_factor()
         
         # clear the input fields
         updateSelectInput(
@@ -1508,21 +1576,28 @@ server <- function(input, output, session) {
     
     ## emission factor table ####
     
+    # grid mix table
+    output$ele_grid_mix_table <- renderDT({
+        datatable(ele_grid_mix_table(),
+                  selection = "single",
+                  options = list(dom = 't'))
+    })
     
-    
-    ## FERA table
+    # FERA table
     output$FERA_emission_factor_table <- renderDT({
         datatable(world_cities,
                   selection = "single",
                   options = list(dom = 't'))
     })
     
-    ## S1 and S2 table
+    # S1 and S2 table
     output$s1_2_emission_factor_table <- renderDT({
         datatable(world_cities,
                   selection = "single",
                   options = list(dom = 't'))
     })
+    
+
     
 }
 
