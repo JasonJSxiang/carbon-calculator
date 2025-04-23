@@ -108,53 +108,61 @@ server <- function(input, output, session) {
                     
                     fluidRow(
                         ### inputs tab box ####
-                        column(width = 3,
-                               
-                               tabBox(
-                                   title = NULL,
-                                   id = "asset_inputs_box",
-                                   width = NULL,
-                                   
-                                   #### building ####
-                                   tabPanel(
-                                       id = "building_inputs_asset", 
-                                       title = "Building",
-                                       textInput(
-                                           "building_asset_name_asset", "Asset Name*"
-                                       ),
-                                       numericInput(
-                                           "office_area_asset", "Occupied Floor Area",
-                                           value = NA,
-                                           min = 0
-                                       ),
-                                       selectInput("area_unit_asset", "Area Unit",
-                                                   choices = c("Select a unit" = "",
-                                                               "m2",
-                                                               "ftsq"),
-                                                   selected = ""),
-                                       checkboxInput("subleased_asset", 
-                                                     "Subleased Asset?", value = FALSE),
-                                       selectInput("applicable_source_asset",
-                                                   "Applicable Emission Sources*",
-                                                   choices = c("Select a unit*" = "", 
-                                                               fuel_building),
-                                                   multiple = TRUE),
-                                       actionButton("add_record_building_asset",
-                                                    "Add Record")        
-                                   ),
-                                   
-                                   #### vehicle ####
-                                   tabPanel(
-                                       id = "vehicle_inputs_asset",
-                                       title = "Vehicle",
-                                       textInput("vehicle_asset_name_asset", "Asset Name*"),
-                                       selectInput("vehicle_type_asset", "Vehicle Type*",
-                                                   choices = c("Select a vehicle type" = "", 
-                                                               vehicle_type)),
-                                       actionButton("add_record_vehicle_asset", 
-                                                    "Add Record")
-                                   )
-                               )
+                        column(
+                            width = 3,
+                            
+                            tabBox(
+                                title = NULL,
+                                id = "asset_inputs_box",
+                                width = NULL,
+                                
+                                #### building ####
+                                tabPanel(
+                                    id = "building_inputs_asset", 
+                                    title = "Building",
+                                    textInput(
+                                        "building_asset_name_asset", "Asset Name*"
+                                    ),
+                                    numericInput(
+                                        "office_area_asset", "Occupied Floor Area",
+                                        value = NA,
+                                        min = 0
+                                    ),
+                                    selectInput(
+                                        "area_unit_asset", "Area Unit",
+                                        choices = c("Select a unit" = "",
+                                                    "m2",
+                                                    "ftsq"),
+                                        selected = ""),
+                                    checkboxInput(
+                                        "subleased_asset", 
+                                        "Subleased Asset?", value = FALSE),
+                                    selectInput(
+                                        "applicable_source_asset",
+                                        "Applicable Emission Sources*",
+                                        choices = c("Select a unit*" = "", 
+                                                    fuel_building),
+                                        multiple = TRUE),
+                                    actionButton(
+                                        "add_record_building_asset",
+                                        "Add Record")        
+                                ),
+                                
+                                #### vehicle ####
+                                tabPanel(
+                                    id = "vehicle_inputs_asset",
+                                    title = "Vehicle",
+                                    textInput(
+                                        "vehicle_asset_name_asset", "Asset Name*"),
+                                    selectInput(
+                                        "vehicle_type_asset", "Vehicle Type*",
+                                        choices = c("Select a vehicle type" = "", 
+                                                    vehicle_type)),
+                                    actionButton(
+                                        "add_record_vehicle_asset", 
+                                        "Add Record")
+                                )
+                            )
                         ),
                         
                         ### table tab box ####
@@ -170,7 +178,8 @@ server <- function(input, output, session) {
                                        
                                        id = "building_table_asset",
                                        title = "Building",
-                                       div(style = "overflow-x: auto; min-height: 100px;",  
+                                       div(
+                                           style = "overflow-x: auto; min-height: 100px;",  
                                            DTOutput("asset_table_building")
                                        )
                                        
@@ -181,7 +190,8 @@ server <- function(input, output, session) {
                                        
                                        id = "vehicle_table_asset",
                                        title = "Vehciel",
-                                       div(style = "overflow-x: auto; min-height: 100px;",  
+                                       div(
+                                           style = "overflow-x: auto; min-height: 100px;",  
                                            DTOutput("asset_table_vehicle")
                                        )
                                        
@@ -210,34 +220,44 @@ server <- function(input, output, session) {
                                        title = "Building",
                                        id = "building_inputs_emission_record",
                                        
-                                       selectInput("building_asset_emission_record",
-                                                   "Select asset*",
-                                                   choices = ""),
-                                       selectInput("building_year_emission_record",
-                                                   "Select a Reporting Year*",
-                                                   choices = c("Select a year" = "",
-                                                               reporting_year)),
-                                       selectInput("fuel_select_building_emission_record",
-                                                   "Select fuel type*",
-                                                   choices = c("Select a fuel type" = "")),
-                                       numericInput("building_consumption_emission_record",
-                                                    "Energy consumption*",
-                                                    value = NA,
-                                                    min = 0),
-                                       selectInput("building_unit_emission_record",
-                                                   "Select a unit",
-                                                   choices = c("Select a unit" = "",
-                                                               building_fuel_unit)),
-                                       dateRangeInput("building_date_range_emission_record", 
-                                                      "Date Range*",
-                                                      start = NA, end = NA),
-                                       textInput("building_comment_emission_record",
-                                                 "Additional Comment",
-                                                 value = ""),
-                                       uiOutput("renewable_energy_ui"),
-                                       uiOutput("renewable_energy_fields_ui"),
-                                       actionButton("add_building_record_emission_record",
-                                                    "Add record")
+                                       selectInput(
+                                           "building_asset_emission_record",
+                                           "Select asset*",
+                                           choices = ""),
+                                       selectInput(
+                                           "building_year_emission_record",
+                                           "Select a Reporting Year*",
+                                           choices = c("Select a year" = "",
+                                                       reporting_year)),
+                                       selectInput(
+                                           "fuel_select_building_emission_record",
+                                           "Select fuel type*",
+                                           choices = c("Select a fuel type" = "")),
+                                       numericInput(
+                                           "building_consumption_emission_record",
+                                           "Energy consumption*",
+                                           value = NA,
+                                           min = 0),
+                                       selectInput(
+                                           "building_unit_emission_record",
+                                           "Select a unit",
+                                           choices = c("Select a unit" = "",
+                                                       building_fuel_unit)),
+                                       dateRangeInput(
+                                           "building_date_range_emission_record", 
+                                           "Date Range*",
+                                           start = NA, end = NA),
+                                       textInput(
+                                           "building_comment_emission_record",
+                                           "Additional Comment",
+                                           value = ""),
+                                       uiOutput(
+                                           "renewable_energy_ui"),
+                                       uiOutput(
+                                           "renewable_energy_fields_ui"),
+                                       actionButton(
+                                           "add_building_record_emission_record",
+                                           "Add record")
                                    ),
                                    
                                    #### vehicle ####
@@ -245,35 +265,44 @@ server <- function(input, output, session) {
                                        title = "Vehicle",
                                        id = "vehicle_inputs_emission_record",
                                        
-                                       selectInput("vehicle_asset_emission_record",
-                                                   "Select asset*",
-                                                   choices = ""),
-                                       selectInput("vehicle_year_emission_record",
-                                                   "Select a Reporting Year*",
-                                                   choices = c("Select a year" = "",
-                                                               reporting_year)),
-                                       selectInput("fuel_select_vehicle_emission_record",
-                                                   "Select fuel type*",
-                                                   choices = c(
-                                                       "Select a fuel type" = "")),
-                                       radioButtons("fuel_or_mileage_emission_record",
-                                                    "Data Submission Type*",
-                                                    choices = c("Fuel",
-                                                                "Mileage"),
-                                                    selected = NA),
-                                       numericInput("vehicle_consumption_emission_record",
-                                                    "Consumption / Mileage*",
-                                                    value = NA,
-                                                    min = 0),
-                                       selectInput("vehicle_unit_emission_record",
-                                                   "Select a unit*",
-                                                   choices = c("Select a unit" = "")),
-                                       dateRangeInput("vehicle_date_range_emission_record", 
-                                                      "Date Range*"),
-                                       textInput("vehicle_comment_emission_record",
-                                                 "Additional Comment"),
-                                       actionButton("add_vehicle_record_emission_record",
-                                                    "Add record")
+                                       selectInput(
+                                           "vehicle_asset_emission_record",
+                                           "Select asset*",
+                                           choices = ""),
+                                       selectInput(
+                                           "vehicle_year_emission_record",
+                                           "Select a Reporting Year*",
+                                           choices = c("Select a year" = "",
+                                                       reporting_year)),
+                                       selectInput(
+                                           "fuel_select_vehicle_emission_record",
+                                           "Select fuel type*",
+                                           choices = c(
+                                               "Select a fuel type" = "")),
+                                       radioButtons(
+                                           "fuel_or_mileage_emission_record",
+                                           "Data Submission Type*",
+                                           choices = c("Fuel",
+                                                       "Mileage"),
+                                           selected = NA),
+                                       numericInput(
+                                           "vehicle_consumption_emission_record",
+                                           "Consumption / Mileage*",
+                                           value = NA,
+                                           min = 0),
+                                       selectInput(
+                                           "vehicle_unit_emission_record",
+                                           "Select a unit*",
+                                           choices = c("Select a unit" = "")),
+                                       dateRangeInput(
+                                           "vehicle_date_range_emission_record", 
+                                           "Date Range*"),
+                                       textInput(
+                                           "vehicle_comment_emission_record",
+                                           "Additional Comment"),
+                                       actionButton(
+                                           "add_vehicle_record_emission_record",
+                                           "Add record")
                                    )
                                    
                                )
@@ -342,21 +371,21 @@ server <- function(input, output, session) {
                             mainPanel(
                                 
                                 tabBox(width = 12,
-                                    tabPanel(
-                                        title = "Grid Mix",
-                                        id = "grix_mix_emission_factor_table",
-                                        DTOutput("ele_grid_mix_table")
-                                    ),
-                                    tabPanel(
-                                        title = "FERA",
-                                        id = "FERA_emission_factor_table",
-                                        DTOutput("FERA_emission_factor_table")
-                                    ),
-                                    tabPanel(
-                                        title = "Scope 1 and 2",
-                                        id = "s1_2_emission_factor_table",
-                                        DTOutput("s1_2_emission_factor_table")
-                                    )
+                                       tabPanel(
+                                           title = "Grid Mix",
+                                           id = "grix_mix_emission_factor_table",
+                                           DTOutput("ele_grid_mix_table")
+                                       ),
+                                       tabPanel(
+                                           title = "FERA",
+                                           id = "FERA_emission_factor_table",
+                                           DTOutput("FERA_emission_factor_table")
+                                       ),
+                                       tabPanel(
+                                           title = "Scope 1 and 2",
+                                           id = "s1_2_emission_factor_table",
+                                           DTOutput("s1_2_emission_factor_table")
+                                       )
                                 )
                             )
                         )
@@ -848,8 +877,9 @@ server <- function(input, output, session) {
         
         # check end date strictly greater than or equal to start date
         if(new_record$`End Date` < new_record$`Start Date`) {
-            showNotification("Start date must be smaller than or equal to end date",
-                             type = "warning")
+            showNotification(
+                "Start date must be smaller than or equal to end date",
+                type = "warning")
             
             return()
         }
@@ -1004,8 +1034,9 @@ server <- function(input, output, session) {
         
         # check end date strictly greater than or equal to start date
         if(new_record$`End Date` < new_record$`Start Date`) {
-            showNotification("Start date must be smaller than or equal to end date",
-                             type = "warning")
+            showNotification(
+                "Start date must be smaller than or equal to end date",
+                type = "warning")
             
             return()
         }
