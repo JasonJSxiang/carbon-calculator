@@ -347,48 +347,53 @@ server <- function(input, output, session) {
             ## emission factor tab ####
             tabItem(tabName = "emission_factor_tab",
                     
-                    fluidPage(
-                        sidebarLayout(
-                            sidebarPanel(
-                                selectInput(
-                                    "country_emission_factor",
-                                    "Select a country",
-                                    choices = c("Select a country" = "",
-                                                distinct(world_cities,
-                                                         country) |> 
-                                                    arrange(country)),
-                                    selected = ""
-                                ),
+                    fluidRow(
+                        column(
+                            width = 3,
+                            
+                            tabBox(
+                                width = NULL,
                                 
-                                selectInput(
-                                    "city_emission_factor",
-                                    "Select a city",
-                                    choices = c("Select a city" = "")
-                                )
-                                
-                                
-                            ),
-                            mainPanel(
-                                
-                                tabBox(width = 12,
-                                       tabPanel(
-                                           title = "Grid Mix",
-                                           id = "grix_mix_emission_factor_table",
-                                           DTOutput("ele_grid_mix_table")
-                                       ),
-                                       tabPanel(
-                                           title = "FERA",
-                                           id = "FERA_emission_factor_table",
-                                           DTOutput("FERA_emission_factor_table")
-                                       ),
-                                       tabPanel(
-                                           title = "Scope 1 and 2",
-                                           id = "s1_2_emission_factor_table",
-                                           DTOutput("s1_2_emission_factor_table")
-                                       )
+                                tabPanel(
+                                    title = "Grid Mix",
+                                    id = "grid_mix_input_emission_factor",
+                                    
+                                    radioButtons(
+                                        "grid_mix_ui_selection_button",
+                                        "Select a submission type",
+                                        choices = c("Country-level",
+                                                    "City-level"),
+                                        selected = NA
+                                    ),
+                                    
+                                    uiOutput("grid_mix_ui")
+                                    
                                 )
                             )
+                            
+                        ),
+                        
+                        column(width = 9,
+                               
+                               tabBox(width = 12,
+                                      tabPanel(
+                                          title = "Grid Mix",
+                                          id = "grix_mix_emission_factor_table",
+                                          DTOutput("ele_grid_mix_table")
+                                      ),
+                                      tabPanel(
+                                          title = "FERA",
+                                          id = "FERA_emission_factor_table",
+                                          DTOutput("FERA_emission_factor_table")
+                                      ),
+                                      tabPanel(
+                                          title = "Scope 1 and 2",
+                                          id = "s1_2_emission_factor_table",
+                                          DTOutput("s1_2_emission_factor_table")
+                                      )
+                               )
                         )
+                        
                     )
             ),
             
@@ -1107,7 +1112,10 @@ server <- function(input, output, session) {
     
     # update city selectInput choices in the ui
     observe({
-        req(nzchar(input$country_emission_factor))
+        req(
+            input$grid_mix_ui_selection_button == "City-level" |
+                nzchar(input$country_emission_factor)
+        )
         
         # get the unique city names from of the chosen country
         temp_city_list <- world_cities |> 
@@ -1125,26 +1133,291 @@ server <- function(input, output, session) {
     # emission factors are grouped by country, city, and emission source
     
     # 1. Electricity grid mix
-    ele_grid_mix_table <- reactive({
-        req(nzchar(input$country_emission_factor))
+    
+    # render different ui depending on whether the user is submitting the 
+    # grid mix at country level or city level
+    
+    output$grid_mix_ui <- renderUI({
+        req(
+            input$grid_mix_ui_selection_button
+        ) # only initiate when the button is clicked
+        
+        if(input$grid_mix_ui_selection_button == "Country-level") {
+            
+            tagList(
+                
+                selectInput(
+                    "country_emission_factor",
+                    "Select a country*",
+                    choices = c("Select a country" = "",
+                                distinct(world_cities,
+                                         country) |>
+                                    arrange(country)),
+                    selected = ""
+                ),
+                
+                numericInput(
+                    "coal_mix_emission_factor",
+                    "Share of coal generation (%)",
+                    value = NA,
+                    min = 0
+                ),
+                
+                numericInput(
+                    "oil_mix_emission_factor",
+                    "Share of oil generation (%)",
+                    value = NA,
+                    min = 0
+                ),
+                
+                numericInput(
+                    "gas_mix_emission_factor",
+                    "Share of gas generation (%)",
+                    value = NA,
+                    min = 0
+                ),
+                
+                numericInput(
+                    "nuclear_mix_emission_factor",
+                    "Share of nuclear generation (%)",
+                    value = NA,
+                    min = 0
+                ),
+                
+                numericInput(
+                    "renewables_mix_emission_factor",
+                    "Share of renewables generation (%)",
+                    value = NA,
+                    min = 0
+                ),
+                
+                actionButton(
+                    "add_record_grid_mix_emission_factor",
+                    "Add record"
+                )
+            )            
+        } else
+            
+            if(input$grid_mix_ui_selection_button == "City-level") {
+                
+                tagList(
+                    
+                    selectInput(
+                        "country_emission_factor",
+                        "Select a country*",
+                        choices = c("Select a country" = "",
+                                    distinct(world_cities,
+                                             country) |>
+                                        arrange(country)),
+                        selected = ""
+                    ),
+                    
+                    selectInput(
+                        "city_emission_factor",
+                        "Select a city*",
+                        choices = c("Select a city" = "")
+                    ),
+                    
+                    numericInput(
+                        "coal_mix_emission_factor",
+                        "Share of coal generation (%)",
+                        value = NA,
+                        min = 0
+                    ),
+                    
+                    numericInput(
+                        "oil_mix_emission_factor",
+                        "Share of oil generation (%)",
+                        value = NA,
+                        min = 0
+                    ),
+                    
+                    numericInput(
+                        "gas_mix_emission_factor",
+                        "Share of gas generation (%)",
+                        value = NA,
+                        min = 0
+                    ),
+                    
+                    numericInput(
+                        "nuclear_mix_emission_factor",
+                        "Share of nuclear generation (%)",
+                        value = NA,
+                        min = 0
+                    ),
+                    
+                    numericInput(
+                        "renewables_mix_emission_factor",
+                        "Share of renewables generation (%)",
+                        value = NA,
+                        min = 0
+                    ),
+                    
+                    actionButton(
+                        "add_record_grid_mix_emission_factor",
+                        "Add record"
+                    )
+                )
+            }        
+        
+    })
+    
+    # initialise an empty table
+    ele_grid_mix_table <- reactiveVal({
         
         tibble(
-            Country = input$country_emission_factor,
-            City = input$city_emission_factor,
-            Coal = NA_real_,
-            Oil = NA_real_,
-            Gas = NA_real_,
-            Nuclear = NA_real_,
-            Renewables = NA_real_
+            Country = character(0),
+            City = character(0),
+            Coal = numeric(0),
+            Oil = numeric(0),
+            Gas = numeric(0),
+            Nuclear = numeric(0),
+            Renewables = numeric(0)
+        )
+        
+        
+    })
+    
+    observeEvent(input$add_record_grid_mix_emission_factor, {
+        
+        if(input$grid_mix_ui_selection_button == "Country-level") {
+            
+            # check country input is selected
+            if(
+                !nzchar(input$country_emission_factor)
+            ) {
+                showNotification("Incomeplete record!",
+                                 type = "warning")
+                
+                return()
+            }
+            
+            # check the sum of the mix must not exceed 1
+            if(
+                sum(
+                    c(input$coal_mix_emission_factor,
+                      input$oil_mix_emission_factor,
+                      input$gas_mix_emission_factor,
+                      input$nuclear_mix_emission_factor,
+                      input$renewables_emission_factor),
+                    na.rm = TRUE
+                ) / 100 > 1
+            ) {
+                showNotification("The sum of mix cannot exceed 1!",
+                                 type = "warning")
+                
+                return()
+            }
+            
+            new_table <<- tibble(
+                Country = input$country_emission_factor,
+                City = NA_character_,
+                Coal = input$coal_mix_emission_factor,
+                Oil = input$oil_mix_emission_factor,
+                Gas = input$gas_mix_emission_factor,
+                Nuclear = input$nuclear_emission_factor,
+                Renewables = input$renewables_emission_factor
+            )
+            
+        } else
+            
+            if(input$grid_mix_ui_selection_button == "City-level") {
+                
+                # check both country and city inputs are selected
+                if(
+                    !nzchar(input$country_emission_factor) |
+                    !nzchar(input$city_emission_factor)
+                ) {
+                    showNotification("Incomplete record!",
+                                     type = "warning")
+                    
+                    return()
+                } 
+                
+                # check the sum of the mix must not exceed 1
+                if(
+                    sum(
+                        c(input$coal_mix_emission_factor,
+                          input$oil_mix_emission_factor,
+                          input$gas_mix_emission_factor,
+                          input$nuclear_mix_emission_factor,
+                          input$renewables_emission_factor),
+                        na.rm = TRUE
+                    ) / 100 > 1
+                ) {
+                    showNotification("The sum of mix cannot exceed 1!",
+                                     type = "warning")
+                    
+                    return()
+                }
+                
+                new_table <<- tibble(
+                    Country = input$country_emission_factor,
+                    City = input$city_emission_factor,
+                    Coal = input$coal_mix_emission_factor,
+                    Oil = input$oil_mix_emission_factor,
+                    Gas = input$gas_mix_emission_factor,
+                    Nuclear = input$nuclear_emission_factor,
+                    Renewables = input$renewables_emission_factor
+                )
+            }
+        
+        
+        # pass the new table to the reactive function
+        ele_grid_mix_table(new_table)
+        
+        # clear the input fields
+        updateSelectInput(
+            session,
+            "country_emission_factor",
+            selected = ""
+        )
+        
+        updateSelectInput(
+            session,
+            "city_emission_factor",
+            selected = ""
+        )
+        
+        updateNumericInput(
+            session,
+            "coal_mix_emission_factor",
+            value = NA
+        )
+        
+        updateNumericInput(
+            session,
+            "oil_mix_emission_factor",
+            value = NA
+        )
+        
+        updateNumericInput(
+            session,
+            "gas_mix_emission_factor",
+            value = NA
+        )
+        
+        updateNumericInput(
+            session,
+            "nuclear_mix_emission_factor",
+            value = NA
+        )
+        
+        updateNumericInput(
+            session,
+            "renewables_mix_emission_factor",
+            value = NA
         )
         
         
     })
     
     
-    # FERA values for scope 1 and 2 all fuels
     
-    # emission factor for scope 1 and 2 all fuels 
+    
+    # 2. FERA values for scope 1 and 2 all fuels
+    
+    # 3. emission factor for scope 1 and 2 all fuels 
     
     #
     
@@ -1200,7 +1473,7 @@ server <- function(input, output, session) {
     ## emission factor table ####
     
     # grid mix table
-    output$ele_grid_mix_table <- renderDataTable({
+    output$ele_grid_mix_table <- renderDT({
         datatable(ele_grid_mix_table(),
                   selection = "single",
                   options = list(dom = 't'))
@@ -1219,7 +1492,6 @@ server <- function(input, output, session) {
                   selection = "single",
                   options = list(dom = 't'))
     })
-    
     
 }
 
