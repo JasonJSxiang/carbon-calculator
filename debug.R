@@ -7,14 +7,16 @@ library(DT)
 library(maps)
 library(shinydashboard)
 library(plotly)
+library(digest)
 
 
 # Initialise database ------------------------------------------------------------
 con <- dbConnect(SQLite(), "database/database.sqlite")
 
 # building asset
-dbExecute(con,
-          "CREATE TABLE IF NOT EXISTS asset_building
+dbExecute(
+    con,
+    "CREATE TABLE IF NOT EXISTS asset_building
           (Country TEXT,
           City TEXT,
           \"Asset Type\" TEXT,
@@ -26,8 +28,9 @@ dbExecute(con,
           \"Creation Time\" INTEGER)")
 
 # vehicle asset
-dbExecute(con,
-          "CREATE TABLE IF NOT EXISTS asset_vehicle
+dbExecute(
+    con,
+    "CREATE TABLE IF NOT EXISTS asset_vehicle
           (Country TEXT,
           City TEXT,
           \"Asset Type\" TEXT,
@@ -35,10 +38,12 @@ dbExecute(con,
           \"Vehicle Type\" TEXT,
           \"Creation Time\" INTEGER)")
 
-# emission record: building
-dbExecute(con,
-          "CREATE TABLE IF NOT EXISTS emission_record_building
-          (\"Asset Name\" TEXT,
+# consumption record: building
+dbExecute(
+    con,
+    "CREATE TABLE IF NOT EXISTS consumption_record_building
+          (\"Hash ID\" TEXT,
+          \"Asset Name\" TEXT,
           \"Reporting Year\" INTEGER,
           \"Fuel Type\" TEXT,
           Consumption REAL,
@@ -51,10 +56,12 @@ dbExecute(con,
           \"Additional Comment\" TEXT,
           \"Creation Time\" INTEGER)")
 
-# emission record: vehicle
-dbExecute(con,
-          "CREATE TABLE IF NOT EXISTS emission_record_vehicle
-          (\"Asset Name\" TEXT,
+# consumption record: vehicle
+dbExecute(
+    con,
+    "CREATE TABLE IF NOT EXISTS consumption_record_vehicle
+          (\"Hash ID\" TEXT,
+          \"Asset Name\" TEXT,
           \"Reporting Year\" INTEGER,
           \"Fuel Type\" TEXT,
           \"Data Type\" TEXT,
@@ -65,17 +72,49 @@ dbExecute(con,
           \"Additional Comment\" TEXT,
           \"Creation Time\" INTEGER)")
 
+# emission record: building
+dbExecute(
+    con,
+    "CREATE TABLE IF NOT EXISTS emission_record_building
+    (\"Hash ID\" TEXT,
+    \"Consumption Record Hash ID\" TEXT,
+    \"Asset Name\" TEXT,
+    \"Fuel Type\" TEXT,
+    \"LB Emission\" REAL,
+    \"MB Emission\" REAL,
+    \"Start Date\" INTEGER,
+    \"End Date\" INTEGER,
+    \"Creation Time\" INTEGER)")
+
+# emission record: vehicle
+dbExecute(
+    con,
+    "CREATE TABLE IF NOT EXISTS emission_record_vehicle
+    (\"Hash ID\" TEXT,
+    \"Consumption Record Hash ID\",
+    \"Asset Name\" TEXT,
+    \"Fuel Type\" TEXT,
+    \"Data Type\" TEXT,
+    \"LB Emission\" REAL,
+    \"MB Emission\" REAL,
+    \"Start Date\" INTEGER,
+    \"End Date\" INTEGER,
+    \"Creation Time\" INTEGER)")
+
+
+
 # emission factor: grid mix
-dbExecute(con, 
-          "CREATE TABLE IF NOT EXISTS grid_mix_emission_factor  
-          (Country TEXT,
-          City TEXT,
-          \"Coal (%)\" REAL,
-          \"Oil (%)\" REAL,
-          \"Gas (%)\" REAL,
-          \"Nuclear (%)\" REAL,
-          \"Renewables (%) \" REAL,
-          Remark TEXT)")
+dbExecute(
+    con, 
+    "CREATE TABLE IF NOT EXISTS grid_mix_emission_factor  
+    (Country TEXT,
+    City TEXT,
+    \"Coal (%)\" REAL,
+    \"Oil (%)\" REAL,
+    \"Gas (%)\" REAL,
+    \"Nuclear (%)\" REAL,
+    \"Renewables (%) \" REAL,
+    Remark TEXT)")
 
 dbDisconnect(con)
 
@@ -100,10 +139,6 @@ vehicle_type <- c("Petrol",
 # building fuel unit
 building_fuel_unit <- c("kWh", "BTU")
 
-# # vehicle fuel / mileage unit
-# vehicle_fuel_mileage_unit <- c("liters", "m3", "US gallons", 
-#                                "imperial gallons", "miles", "km")
-
 # reporting year
 reporting_year <- c(2025:2015)
 
@@ -123,15 +158,6 @@ city_df <- world.cities |>
     mutate(name = str_replace(name, "^'", "")) |> # remove the leading ' in the col
     dplyr::distinct(name, .keep_all = TRUE) |>  # keep unique country
     dplyr::arrange(name)
-
-# function to load all the tables
-load_all <- function() {
-    load_asset_building()
-    load_asset_vehicle()
-    load_emission_record_building()
-    load_emission_record_vehicle()
-    load_grid_mix_emission_factor()
-}
 
 # static ui components --------------------------------------------------------------
 
@@ -180,7 +206,8 @@ ui <- dashboardPage(
 
 server <- function(input, output, session) {
     
-    # Establish connection with database pool
+    
+    # Establish connection with database --------------------------------------
     pool <- dbPool(
         SQLite(),
         dbname = "database/database.sqlite"
@@ -190,6 +217,20 @@ server <- function(input, output, session) {
     onStop(function() {
         poolClose(pool)
     })
+    
+    
+    # Dynamic objects ---------------------------------------------------------
+    
+    # function to load all the tables
+    load_all <- function() {
+        load_asset_building()
+        load_asset_vehicle()
+        load_consumption_record_building()
+        load_consumption_record_vehicle()
+        load_emission_record_building()
+        load_emission_record_vehicle()
+        load_grid_mix_emission_factor()
+    }    
     
     
     
@@ -207,37 +248,24 @@ server <- function(input, output, session) {
                     column(
                         width = 2,
                         
-                        wellPanel(
-                            
-                            actionButton(
-                                "clear_asset_building",
-                                "Clear Building Asset Table"
-                            ),
-                            
-                            actionButton(
-                                "clear_asset_vehicle",
-                                "Clear Vehicle Asset Table"
-                            ),
-                            
-                            actionButton(
-                                "clear_emission_record_building",
-                                "Clear Building Emission Record Table"
-                            ),
-                            
-                            actionButton(
-                                "clear_emission_record_vehicle",
-                                "Clear Vehicle Emission Record Table"
-                            ),
-                            
-                            actionButton(
-                                "clear_grid_mix_emission_factor",
-                                "Clear Grix Mix Table"
-                            ),
-                            
-                            actionButton(
-                                "clear_all",
-                                "CLEAR ALL"
-                            )
+                        actionButton(
+                            "clear_asset",
+                            "Clear Asset Table"
+                        ),
+                        
+                        actionButton(
+                            "clear_consumption_record",
+                            "Clear Consumption Record Table"
+                        ),
+                        
+                        actionButton(
+                            "clear_grid_mix_emission_factor",
+                            "Clear Grid Mix Table"
+                        ),
+                        
+                        actionButton(
+                            "clear_all",
+                            "CLEAR ALL"
                         )
                     )
                 )
@@ -384,43 +412,43 @@ server <- function(input, output, session) {
                         
                         tabBox(
                             title = NULL,
-                            id = "emission_record_inputs",
+                            id = "consumption_record_inputs",
                             width = NULL,
                             
                             #### building ####
                             tabPanel(
                                 title = "Building",
-                                id = "building_inputs_emission_record",
+                                id = "building_inputs_consumption_record",
                                 
                                 selectInput(
-                                    "building_asset_emission_record",
+                                    "building_asset_consumption_record",
                                     "Select asset*",
                                     choices = ""),
                                 selectInput(
-                                    "building_year_emission_record",
+                                    "building_year_consumption_record",
                                     "Select a Reporting Year*",
                                     choices = c("Select a year" = "",
                                                 reporting_year)),
                                 selectInput(
-                                    "fuel_select_building_emission_record",
+                                    "fuel_select_building_consumption_record",
                                     "Select fuel type*",
                                     choices = c("Select a fuel type" = "")),
                                 numericInput(
-                                    "building_consumption_emission_record",
+                                    "building_consumption_consumption_record",
                                     "Energy consumption*",
                                     value = NA,
                                     min = 0),
                                 selectInput(
-                                    "building_unit_emission_record",
+                                    "building_unit_consumption_record",
                                     "Select a unit",
                                     choices = c("Select a unit" = "",
                                                 building_fuel_unit)),
                                 dateRangeInput(
-                                    "building_date_range_emission_record", 
+                                    "building_date_range_consumption_record", 
                                     "Date Range* (yyyy-mm-dd)",
                                     start = NA, end = NA),
                                 textInput(
-                                    "building_comment_emission_record",
+                                    "building_comment_consumption_record",
                                     "Additional Comment",
                                     value = ""),
                                 uiOutput(
@@ -428,54 +456,54 @@ server <- function(input, output, session) {
                                 uiOutput(
                                     "renewable_energy_fields_ui"),
                                 actionButton(
-                                    "add_building_record_emission_record",
+                                    "add_building_consumption_record",
                                     "Add record")
                             ),
                             
                             #### vehicle ####
                             tabPanel(
                                 title = "Vehicle",
-                                id = "vehicle_inputs_emission_record",
+                                id = "vehicle_inputs_consumption_record",
                                 
                                 selectInput(
-                                    "vehicle_asset_emission_record",
+                                    "vehicle_asset_consumption_record",
                                     "Select asset*",
                                     choices = ""),
                                 selectInput(
-                                    "vehicle_year_emission_record",
+                                    "vehicle_year_consumption_record",
                                     "Select a Reporting Year*",
                                     choices = c("Select a year" = "",
                                                 reporting_year)),
                                 selectInput(
-                                    "fuel_select_vehicle_emission_record",
+                                    "fuel_select_vehicle_consumption_record",
                                     "Select fuel type*",
                                     choices = c(
                                         "Select a fuel type" = "")),
                                 radioButtons(
-                                    "fuel_or_mileage_emission_record",
+                                    "fuel_or_mileage_consumption_record",
                                     "Data Submission Type*",
                                     choices = c("Fuel",
                                                 "Mileage"),
                                     selected = NA),
                                 numericInput(
-                                    "vehicle_consumption_emission_record",
+                                    "vehicle_consumption_consumption_record",
                                     "Consumption / Mileage*",
                                     value = NA,
                                     min = 0),
                                 selectInput(
-                                    "vehicle_unit_emission_record",
+                                    "vehicle_unit_consumption_record",
                                     "Select a unit*",
                                     choices = c("Select a unit" = "")),
                                 dateRangeInput(
-                                    "vehicle_date_range_emission_record", 
+                                    "vehicle_date_range_consumption_record", 
                                     "Date Range* (yyyy-mm-dd)",
                                     start = NA,
                                     end = NA),
                                 textInput(
-                                    "vehicle_comment_emission_record",
+                                    "vehicle_comment_consumption_record",
                                     "Additional Comment"),
                                 actionButton(
-                                    "add_vehicle_record_emission_record",
+                                    "add_vehicle_consumption_record",
                                     "Add record")
                             )
                             
@@ -488,7 +516,34 @@ server <- function(input, output, session) {
                         width = 9,
                         
                         tabBox(
-                            title = NULL,
+                            title = "Consumption Record",
+                            id = "consumption_record_table",
+                            width = NULL,
+                            
+                            #### building ####
+                            tabPanel(
+                                title = "Building",
+                                id = "building_consumption_record_table",
+                                div(
+                                    style = "overflow-x: auto; min-height: 100px;",  
+                                    DTOutput("building_table_consumption_record")
+                                )
+                            ),
+                            
+                            #### vehicle ####
+                            tabPanel(
+                                title = "Vehicle",
+                                id = "vehicle_consumption_record_table",
+                                div(
+                                    style = "overflow-x: auto; min_height: 100px:",
+                                    DTOutput("vehicle_table_consumption_record")
+                                )
+                            )
+                            
+                        ),
+                        
+                        tabBox(
+                            title = "Emission Record",
                             id = "emission_record_table",
                             width = NULL,
                             
@@ -497,8 +552,8 @@ server <- function(input, output, session) {
                                 title = "Building",
                                 id = "building_emission_record_table",
                                 div(
-                                    style = "overflow-x: auto; min-height: 100px;",  
-                                    DTOutput("building_table_emission_record")
+                                    style = "overflow-x: auto; min-height: 100px;",    
+                                    DTOutput("emission_record_building")
                                 )
                             ),
                             
@@ -507,11 +562,10 @@ server <- function(input, output, session) {
                                 title = "Vehicle",
                                 id = "vehicle_emission_record_table",
                                 div(
-                                    style = "overflow-x: auto; min_height: 100px:",
-                                    DTOutput("vehicle_table_emission_record")
+                                    style = "overflow-x: auto; min-height: 100px;",
+                                    DTOutput("emission_record_vehicle")
                                 )
                             )
-                            
                         )
                         
                     )
@@ -595,48 +649,42 @@ server <- function(input, output, session) {
     
     ## home tab server ####
     
-    # clear building asset table
-    observeEvent(input$clear_asset_building, {
+    # clear asset table
+    observeEvent(input$clear_asset, {
         dbExecute(
             pool, "DELETE FROM asset_building"
         )
-        dbExecute(pool, "VACUUM")  # 清理空间
         
-        
-        load_asset_building()
-    })
-    
-    # clear vehicle asset table
-    observeEvent(input$clear_asset_vehicle, {
         dbExecute(
             pool, "DELETE FROM asset_vehicle"
         )
+        
         dbExecute(pool, "VACUUM")  # 清理空间
         
-        
+        load_asset_building()
         load_asset_vehicle()
+        
+        showNotification("Asset tables cleared!",
+                         type = "message")
     })
     
-    # clear building emission record table
-    observeEvent(input$clear_emission_record_building, {
+    # clear consumption record table
+    observeEvent(input$clear_consumption_record, {
         dbExecute(
-            pool, "DELETE FROM emission_record_building"
+            pool, "DELETE FROM consumption_record_building"
         )
+        
+        dbExecute(
+            pool, "DELETE FROM consumption_record_vehicle"
+        )
+        
         dbExecute(pool, "VACUUM")  # 清理空间
         
+        load_consumption_record_vehicle()
+        load_consumption_record_building()
         
-        load_emission_record_building()
-    })
-    
-    # clear vehicle emission record table
-    observeEvent(input$clear_emission_record_vehicle, {
-        dbExecute(
-            pool, "DELETE FROM emission_record_vehicle"
-        )
-        dbExecute(pool, "VACUUM")  # 清理空间
-        
-        
-        load_emission_record_vehicle()
+        showNotification("Consumption tables cleared!",
+                         type = "message")
     })
     
     # clear grid mix table
@@ -646,8 +694,10 @@ server <- function(input, output, session) {
         )
         dbExecute(pool, "VACUUM")  # 清理空间
         
-        
         load_grid_mix_emission_factor()
+        
+        showNotification("Grid Mix table cleared!",
+                         type = "message")
     })
     
     # clear ALL
@@ -663,14 +713,12 @@ server <- function(input, output, session) {
             )
         }
         
-        # load all the tables again
         load_all()
-        
         
         dbExecute(pool, "VACUUM")
         
-        
-        
+        showNotification("All tables cleared!",
+                         type = "message")
     })
     
     ## asset table ####
@@ -958,7 +1006,7 @@ server <- function(input, output, session) {
             pull(`Asset Name`)
         
         updateSelectInput(session,
-                          "building_asset_emission_record",
+                          "building_asset_consumption_record",
                           choices = c("Select an asset" = "",
                                       building_asset_list))
     })
@@ -972,7 +1020,7 @@ server <- function(input, output, session) {
             pull(`Asset Name`)
         
         updateSelectInput(session,
-                          "vehicle_asset_emission_record",
+                          "vehicle_asset_consumption_record",
                           choices = c("Select an asset" = "",
                                       vehicle_asset_list))
     })
@@ -980,17 +1028,17 @@ server <- function(input, output, session) {
     #### start and end dates ####
     
     # building
-    observeEvent(input$building_year_emission_record, {
-        req(nzchar(input$building_year_emission_record))
+    observeEvent(input$building_year_consumption_record, {
+        req(nzchar(input$building_year_consumption_record))
         
         updateDateRangeInput(session,
-                             "building_date_range_emission_record",
+                             "building_date_range_consumption_record",
                              min = 
                                  as.Date(
-                                     paste0(input$building_year_emission_record,
+                                     paste0(input$building_year_consumption_record,
                                             "-01-01")),
                              max = as.Date(
-                                 paste0(input$building_year_emission_record,
+                                 paste0(input$building_year_consumption_record,
                                         "-12-31"),
                                  start = NA,
                                  end = NA)
@@ -999,17 +1047,17 @@ server <- function(input, output, session) {
     })
     
     # vehicle
-    observeEvent(input$vehicle_year_emission_record, {
-        req(nzchar(input$vehicle_year_emission_record))
+    observeEvent(input$vehicle_year_consumption_record, {
+        req(nzchar(input$vehicle_year_consumption_record))
         
         updateDateRangeInput(session,
-                             "vehicle_date_range_emission_record",
+                             "vehicle_date_range_consumption_record",
                              min = 
                                  as.Date(
-                                     paste0(input$vehicle_year_emission_record,
+                                     paste0(input$vehicle_year_consumption_record,
                                             "-01-01")),
                              max = as.Date(
-                                 paste0(input$vehicle_year_emission_record,
+                                 paste0(input$vehicle_year_consumption_record,
                                         "-12-31"))
         )
         
@@ -1019,10 +1067,10 @@ server <- function(input, output, session) {
     #### emission source ####
     
     # building
-    observeEvent(input$building_asset_emission_record, {
+    observeEvent(input$building_asset_consumption_record, {
         
         emi_list <- asset_table_building() |> 
-            filter(`Asset Name` == input$building_asset_emission_record) |> 
+            filter(`Asset Name` == input$building_asset_consumption_record) |> 
             distinct(`Applicable Emission Sources`) |> 
             pull(`Applicable Emission Sources`) |> 
             str_split(";") |> 
@@ -1030,18 +1078,18 @@ server <- function(input, output, session) {
             sort()
         
         # update the emission sources drop down menu with the selected asset
-        updateSelectInput(session, "fuel_select_building_emission_record",
+        updateSelectInput(session, "fuel_select_building_consumption_record",
                           choices = c("Select a fuel type" = "",
                                       emi_list))
         
     })
     
     # vehicle
-    observeEvent(input$vehicle_asset_emission_record, {
+    observeEvent(input$vehicle_asset_consumption_record, {
         
         # note down the vehicle types relevant to that asset
         vehicle_type_list <- asset_table_vehicle() |>
-            filter(`Asset Name` == input$vehicle_asset_emission_record) |>
+            filter(`Asset Name` == input$vehicle_asset_consumption_record) |>
             distinct(`Vehicle Type`) |>
             pull(`Vehicle Type`)
         
@@ -1071,18 +1119,18 @@ server <- function(input, output, session) {
         fuel_list <- unique(fuel_list)
         
         # Update the select input with the new fuel list
-        updateSelectInput(session, "fuel_select_vehicle_emission_record",
+        updateSelectInput(session, "fuel_select_vehicle_consumption_record",
                           choices = fuel_list)
     })
     
     
     #### vehicle submission data type ####
-    observeEvent(input$fuel_or_mileage_emission_record, {
+    observeEvent(input$fuel_or_mileage_consumption_record, {
         
-        if(input$fuel_or_mileage_emission_record == "Fuel") {
+        if(input$fuel_or_mileage_consumption_record == "Fuel") {
             
             updateSelectInput(session,
-                              "vehicle_unit_emission_record",
+                              "vehicle_unit_consumption_record",
                               choices = c("Select a unit" = "",
                                           "liters",
                                           "m3", 
@@ -1090,10 +1138,10 @@ server <- function(input, output, session) {
                                           "imperial gallons")
             )
         } else
-            if(input$fuel_or_mileage_emission_record == "Mileage") {
+            if(input$fuel_or_mileage_consumption_record == "Mileage") {
                 
                 updateSelectInput(session,
-                                  "vehicle_unit_emission_record",
+                                  "vehicle_unit_consumption_record",
                                   choices = c("Select a unit" = "", 
                                               "miles", 
                                               "km")
@@ -1107,9 +1155,9 @@ server <- function(input, output, session) {
     
     # pop up RE yes no question when electricity is selected as the fuel type
     output$renewable_energy_ui <- renderUI({
-        req(input$fuel_select_building_emission_record == "Electricity")
+        req(input$fuel_select_building_consumption_record == "Electricity")
         
-        radioButtons("renewable_yes_no_emission_record",
+        radioButtons("renewable_yes_no_consumption_record",
                      "Is the energy from renewable source?*",
                      choices = c("Yes",
                                  "No"),
@@ -1120,14 +1168,14 @@ server <- function(input, output, session) {
     
     # pop up additional fields if selected yes to the previous field
     output$renewable_energy_fields_ui <- renderUI({
-        req(input$renewable_yes_no_emission_record == "Yes")
+        req(input$renewable_yes_no_consumption_record == "Yes")
         
         tagList(
-            numericInput("renewable_energy_consumption_emission_record",
+            numericInput("renewable_energy_consumption_consumption_record",
                          "Renewable Energy Constumption (kWh)*",
                          min = 0,
                          value = NA),
-            selectInput("renewable_energy_type_emission_record",
+            selectInput("renewable_energy_type_consumption_record",
                         "Renewable Energy Type*",
                         choices = c("Select an energy type" = "",
                                     renewable_energy_type))
@@ -1135,62 +1183,74 @@ server <- function(input, output, session) {
         
     })
     
-    ## emission record table ####
+    ## consumption record / emission record table ####
     
     ### building ####
     
-    # initial table for building emission record
-    building_table_emission_record <- reactiveVal(NULL)
+    # initial tables
+    building_table_consumption_record <- reactiveVal(NULL)
+    emission_record_building <- reactiveVal(NULL)
     
     # function to cache database
-    load_emission_record_building <- function() {
-        data <- dbGetQuery(pool,
-                           "SELECT *
-                           FROM emission_record_building") |> 
-            mutate(`Creation Time` = 
-                       as_datetime(
-                           `Creation Time`, 
-                           tz = tz(Sys.timezone())
-                       ),
-                   `Start Date` = as_date(`Start Date`),
-                   `End Date` = as_date(`End Date`)
+    
+    load_consumption_record_building <- function() {
+        data <- dbGetQuery(
+            pool,
+            "SELECT *
+                           FROM consumption_record_building") |> 
+            mutate(
+                `Creation Time` = 
+                    as_datetime(
+                        `Creation Time`, 
+                        tz = tz(Sys.timezone())
+                    ),
+                `Start Date` = as_date(`Start Date`),
+                `End Date` = as_date(`End Date`)
             )
         
-        building_table_emission_record(data)
+        building_table_consumption_record(data)
+    }
+    
+    load_emission_record_building <- function() {
+        data <- dbGetQuery(
+            pool,
+            "SELECT *
+            FROM emission_record_building") |> 
+            mutate(
+                `Creation Time` = 
+                    as_datetime(
+                        `Creation Time`, 
+                        tz = tz(Sys.timezone())
+                    ),
+                `Start Date` = as_date(`Start Date`),
+                `End Date` = as_date(`End Date`)
+            )
+        
+        emission_record_building(data)
     }
     
     # initialise the database at the start
-    observe({
-        load_emission_record_building()
-    })
+    observe({load_consumption_record_building()})
+    observe({load_emission_record_building()})
     
     # Add new record: Building
-    observeEvent(input$add_building_record_emission_record, {
+    observeEvent(input$add_building_consumption_record, {
         # create a new record with the submitted values
         new_record <- tibble(
-            "Asset Name" = input$building_asset_emission_record,
-            "Reporting Year" = input$building_year_emission_record,
-            "Fuel Type" = input$fuel_select_building_emission_record,
-            "Consumption" = input$building_consumption_emission_record,
-            "Unit" = input$building_unit_emission_record,
-            "Renewable?" = input$renewable_yes_no_emission_record,
+            "Asset Name" = input$building_asset_consumption_record,
+            "Reporting Year" = input$building_year_consumption_record,
+            "Fuel Type" = input$fuel_select_building_consumption_record,
+            "Consumption" = input$building_consumption_consumption_record,
+            "Unit" = input$building_unit_consumption_record,
+            "Renewable?" = input$renewable_yes_no_consumption_record,
             "Renewable Energy Consumption (kWh)" = 
-                input$renewable_energy_consumption_emission_record,
-            "Renewable Energy Type" = input$renewable_energy_type_emission_record,
-            "Start Date" = input$building_date_range_emission_record[1],
-            "End Date" = input$building_date_range_emission_record[2],
-            "Additional Comment" = input$building_comment_emission_record,
+                input$renewable_energy_consumption_consumption_record,
+            "Renewable Energy Type" = input$renewable_energy_type_consumption_record,
+            "Start Date" = input$building_date_range_consumption_record[1],
+            "End Date" = input$building_date_range_consumption_record[2],
+            "Additional Comment" = input$building_comment_consumption_record,
             "Creation Time" = Sys.time()
         )
-        
-        # # conditionally add the renewable col if electricity is selected
-        # if(input$fuel_select_building_emission_record == "Electricity") {
-        #   new_record <- new_record |> 
-        #     mutate("Renewable?" = input$renewable_yes_no_emission_record)
-        # }
-        
-        # check for incomplete submission 
-        # (pre checking before renewable energy fields)
         
         # case for electricity 
         if (new_record$`Fuel Type` == "Electricity") {
@@ -1245,7 +1305,7 @@ server <- function(input, output, session) {
         
         
         # check for duplicate record
-        existing_table <- building_table_emission_record()
+        existing_table <- building_table_consumption_record()
         
         duplicate <- any(
             existing_table$`Asset Name` == new_record$`Asset Name` &
@@ -1273,7 +1333,7 @@ server <- function(input, output, session) {
         }
         
         # check for duration overlaps
-        existing_table <- building_table_emission_record() |> 
+        existing_table <- building_table_consumption_record() |> 
             filter(`Asset Name` == new_record$`Asset Name`,
                    `Fuel Type` == new_record$`Fuel Type`)
         
@@ -1305,66 +1365,111 @@ server <- function(input, output, session) {
                 .fns = as.numeric  # 把这些列转换成数字
             ))
         
+        # create a Hash ID for the record
+        new_record$`Hash ID` <- apply(new_record, 
+                                      1,
+                                      digest, 
+                                      algo = "murmur32")
+        
+        # save the new consumption record for later emission calculation
+        new_building_consumption_record <- new_record
+        
         # update the reactive value with new record
         dbWriteTable(pool,
-                     "emission_record_building",
+                     "consumption_record_building",
                      new_record, append = TRUE)
         
         # refresh the table
-        load_emission_record_building()
+        load_consumption_record_building()
         
-        showNotification("New building emission record added", 
+        showNotification("New building consumption record added", 
                          type = "message",
                          closeButton = TRUE)
         
         # clear the inputs field
         updateNumericInput(session,
-                           "building_consumption_emission_record",
+                           "building_consumption_consumption_record",
                            value = NA)
         
         updateSelectInput(session,
-                          "fuel_select_building_emission_record",
+                          "fuel_select_building_consumption_record",
                           selected = "")
         
         updateSelectInput(session,
-                          "building_unit_emission_record",
+                          "building_unit_consumption_record",
                           selected = "")
         
         updateRadioButtons(session,
-                           "renewable_yes_no_emission_record",
+                           "renewable_yes_no_consumption_record",
                            selected = NA)
         
         updateNumericInput(session,
-                           "renewable_energy_consumption_emission_record",
+                           "renewable_energy_consumption_consumption_record",
                            value = NA)
         
         updateSelectInput(session,
-                          "renewable_energy_type_emission_record",
+                          "renewable_energy_type_consumption_record",
                           selected = "")
         
         updateDateRangeInput(session,
-                             "building_date_range_emission_record",
+                             "building_date_range_consumption_record",
                              start = NA,
                              end = NA)
         
         updateTextInput(session,
-                        "building_comment_emission_record",
+                        "building_comment_consumption_record",
                         value = "")
         
+        # procedure to auto-calculate the emission
         
+        # compile the new record
+        new_record <- tibble(
+            `Consumption Record Hash ID` =
+                new_building_consumption_record$`Hash ID`,
+            `Asset Name` = new_building_consumption_record$`Asset Name`,
+            `Fuel Type` = new_building_consumption_record$`Fuel Type`,
+            `LB Emission` = 000,
+            `MB Emission` = 000,
+            `Start Date` = new_building_consumption_record$`Start Date`,
+            `End Date` = new_building_consumption_record$`End Date`,
+            `Creation Time` = Sys.time()
+        )
+        
+        # convert POSIXct and Date variable as numeric
+        new_record <- new_record |>
+            mutate(across(  # 对多列同时进行修改
+                # 选择所有日期时间列
+                .cols = where(~ inherits(., "POSIXct") | inherits(., "Date")), 
+                .fns = as.numeric  # 把这些列转换成数字
+            ))
+        
+        # create a Hash ID for the record
+        new_record$`Hash ID` <- apply(new_record, 
+                                      1,
+                                      digest, 
+                                      algo = "murmur32")
+        
+        # update the reactive value with new record
+        dbWriteTable(pool,
+                     "emission_record_building",
+                     new_record,
+                     append = TRUE)
+        
+        # refresh the table
+        load_emission_record_building()
     })
     
     
     ### vehicle ####
     
-    # initial table for vehicle emission record
-    vehicle_table_emission_record <- reactiveVal(NULL)
+    # initial table for vehicle consumption record
+    vehicle_table_consumption_record <- reactiveVal(NULL)
     
     # create function to cache database 
-    load_emission_record_vehicle <- function() {
+    load_consumption_record_vehicle <- function() {
         data <- dbGetQuery(pool,
                            "SELECT *
-                           FROM emission_record_vehicle") |> 
+                           FROM consumption_record_vehicle") |> 
             mutate(`Creation Time` = 
                        as_datetime(
                            `Creation Time`, 
@@ -1374,29 +1479,29 @@ server <- function(input, output, session) {
                    `End Date` = as_date(`End Date`)
             )
         
-        vehicle_table_emission_record(data)
+        vehicle_table_consumption_record(data)
     }
     
     # initialise the database
     observe({
-        load_emission_record_vehicle()
+        load_consumption_record_vehicle()
     })
     
     
     
     # Add new record: Vehicle
-    observeEvent(input$add_vehicle_record_emission_record, {
+    observeEvent(input$add_vehicle_consumption_record, {
         # create a new record with the submitted values
         new_record <- tibble(
-            "Asset Name" = input$vehicle_asset_emission_record,
-            "Reporting Year" = input$vehicle_year_emission_record,
-            "Fuel Type" = input$fuel_select_vehicle_emission_record,
-            "Amount" = input$vehicle_consumption_emission_record,
-            "Data Type" = input$fuel_or_mileage_emission_record,
-            "Unit" = input$vehicle_unit_emission_record,
-            "Start Date" = input$vehicle_date_range_emission_record[1],
-            "End Date" = input$vehicle_date_range_emission_record[2],
-            "Additional Comment" = input$vehicle_comment_emission_record,
+            "Asset Name" = input$vehicle_asset_consumption_record,
+            "Reporting Year" = input$vehicle_year_consumption_record,
+            "Fuel Type" = input$fuel_select_vehicle_consumption_record,
+            "Amount" = input$vehicle_consumption_consumption_record,
+            "Data Type" = input$fuel_or_mileage_consumption_record,
+            "Unit" = input$vehicle_unit_consumption_record,
+            "Start Date" = input$vehicle_date_range_consumption_record[1],
+            "End Date" = input$vehicle_date_range_consumption_record[2],
+            "Additional Comment" = input$vehicle_comment_consumption_record,
             "Creation Time" = Sys.time()
         )
         
@@ -1417,7 +1522,7 @@ server <- function(input, output, session) {
         
         
         # check for duplicate record
-        existing_table <- vehicle_table_emission_record()
+        existing_table <- vehicle_table_consumption_record()
         
         duplicate <- any(
             
@@ -1447,7 +1552,7 @@ server <- function(input, output, session) {
         }
         
         # check for duration overlaps
-        existing_table <- vehicle_table_emission_record() |> 
+        existing_table <- vehicle_table_consumption_record() |> 
             filter(`Asset Name` == new_record$`Asset Name`,
                    `Fuel Type` == new_record$`Fuel Type`)
         
@@ -1479,43 +1584,125 @@ server <- function(input, output, session) {
                 .fns = as.numeric  # 把这些列转换成数字
             ))
         
+        # create a Hash ID for the record
+        new_record$`Hash ID` <- apply(new_record, 
+                                      1,
+                                      digest, 
+                                      algo = "murmur32")
+        
+        # save the Hash ID in the global envi.
+        new_vehicle_consumption_record <<- new_record
+        
+        # update the reactive value with new record
+        dbWriteTable(pool,
+                     "consumption_record_vehicle",
+                     new_record,
+                     append = TRUE)
+        
+        # refresh the table in the database by running the function 
+        load_consumption_record_vehicle()
+        
+        # show msg that record has been added
+        showNotification("New vehicle consumption record added",
+                         type = "message",
+                         closeButton = TRUE)
+        
+        # clear input fields
+        updateNumericInput(session,
+                           "vehicle_consumption_consumption_record",
+                           value = NA)
+        
+        updateSelectInput(session,
+                          "fuel_select_vehicle_consumption_record",
+                          selected = "")
+        
+        updateSelectInput(session,
+                          "vehicle_unit_consumption_record",
+                          selected = "")
+        
+        updateDateRangeInput(session,
+                             "vehicle_date_range_consumption_record",
+                             start = NA,
+                             end = NA)
+        
+        updateTextInput(session,
+                        "vehicle_comment_consumption_record",
+                        value = "")
+        
+    })
+    
+    ## emission record table ####
+    
+    ### building ####
+    
+    
+    
+    
+    
+    ## vehicle #### 
+    
+    # create an empty reactive value
+    emission_record_vehicle <- reactiveVal(NULL)
+    
+    # create a function that caches database info
+    load_emission_record_vehicle <- function() {
+        
+        # extract the table from the database
+        data <- dbGetQuery(
+            pool,
+            "SELECT *
+            FROM emission_record_vehicle"
+        )
+        
+        # load the table into the empty reactive value
+        emission_record_vehicle(data)
+    }
+    
+    # initialise the table in r
+    observe({
+        load_emission_record_vehicle()
+    })
+    
+    # procedure to update the database
+    observeEvent(input$add_vehicle_consumption_record, {
+        
+        new_record <- tibble(
+            `Consumption Record Hash ID` =
+                new_vehicle_consumption_record$`Hash ID`,
+            `Asset Name` = new_vehicle_consumption_record$`Asset Name`,
+            `Fuel Type` = new_vehicle_consumption_record$`Fuel Type`,
+            `LB Emission` = 000,
+            `MB Emission` = 000,
+            `Start Date` = new_vehicle_consumption_record$`Start Date`,
+            `End Date` = new_vehicle_consumption_record$`End Date`,
+            `Creation Time` = Sys.time()
+        )
+        
+        # convert POSIXct and Date variable as numeric
+        new_record <- new_record |>
+            mutate(across(  # 对多列同时进行修改
+                # 选择所有日期时间列
+                .cols = where(~ inherits(., "POSIXct") | inherits(., "Date")), 
+                .fns = as.numeric  # 把这些列转换成数字
+            ))
+        
+        # create a Hash ID for the record
+        new_record$`Hash ID` <- apply(new_record, 
+                                      1,
+                                      digest, 
+                                      algo = "murmur32")
+        
         # update the reactive value with new record
         dbWriteTable(pool,
                      "emission_record_vehicle",
                      new_record,
                      append = TRUE)
         
-        # refresh the table in the database by running the function 
+        # refresh the table
         load_emission_record_vehicle()
         
-        # show msg that record has been added
-        showNotification("New vehicle emission record added",
-                         type = "message",
-                         closeButton = TRUE)
-        
-        # clear input fields
-        updateNumericInput(session,
-                           "vehicle_consumption_emission_record",
-                           value = NA)
-        
-        updateSelectInput(session,
-                          "fuel_select_vehicle_emission_record",
-                          selected = "")
-        
-        updateSelectInput(session,
-                          "vehicle_unit_emission_record",
-                          selected = "")
-        
-        updateDateRangeInput(session,
-                             "vehicle_date_range_emission_record",
-                             start = NA,
-                             end = NA)
-        
-        updateTextInput(session,
-                        "vehicle_comment_emission_record",
-                        value = "")
-        
     })
+    
     
     
     ## emission factor table ####
@@ -1900,21 +2087,49 @@ server <- function(input, output, session) {
     })
     
     
-    ## emission record ####
+    ## consumption record ####
     
     # building table
-    output$building_table_emission_record <- renderDT({
-        datatable(building_table_emission_record() |> 
+    output$building_table_consumption_record <- renderDT({
+        datatable(building_table_consumption_record() |> 
                       select(-c(`Creation Time`)),
                   selection = "single")
     })
     
     # vehicle table 
-    output$vehicle_table_emission_record <- renderDT({
-        datatable(vehicle_table_emission_record() |> 
-                      select(-c(`Creation Time`)),
-                  selection = "single")
+    output$vehicle_table_consumption_record <- renderDT({
+        datatable(
+            vehicle_table_consumption_record() |> 
+                select(
+                    -c(`Creation Time`)
+                ),
+            selection = "single")
     })
+    
+    ## emission record ####
+    
+    # building
+    output$emission_record_building <- renderDT({
+        datatable(
+            emission_record_building() |> 
+                select(
+                    -c(`Hash ID`, `Creation Time`)
+                ),
+            selection = "single"
+        )
+    })
+    
+    # vehicle
+    output$emission_record_vehicle <- renderDT({
+        datatable(
+            emission_record_vehicle() |> 
+                select(
+                    -c(`Creation Time`)
+                ),
+            selection = "single"
+        )
+    })
+    
     
     ## emission factor ####
     
