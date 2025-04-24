@@ -70,15 +70,16 @@ dbExecute(con,
           "CREATE TABLE IF NOT EXISTS grid_mix_emission_factor  
           (Country TEXT,
           City TEXT,
-          Coal REAL,
-          Oil REAL,
-          Gas REAL,
-          Nuclear REAL,
-          Renewables REAL)")
+          \"Coal (%)\" REAL,
+          \"Oil (%)\" REAL,
+          \"Gas (%)\" REAL,
+          \"Nuclear (%)\" REAL,
+          \"Renewables (%) \" REAL,
+          Remark TEXT)")
 
 dbDisconnect(con)
 
-# Global variables -------------------------------------------------------
+# Global -------------------------------------------------------
 #(code only run once when the app starts)
 
 # fuel list for building
@@ -122,6 +123,15 @@ city_df <- world.cities |>
     mutate(name = str_replace(name, "^'", "")) |> # remove the leading ' in the col
     dplyr::distinct(name, .keep_all = TRUE) |>  # keep unique country
     dplyr::arrange(name)
+
+# function to load all the tables
+load_all <- function() {
+    load_asset_building()
+    load_asset_vehicle()
+    load_emission_record_building()
+    load_emission_record_vehicle()
+    load_grid_mix_emission_factor()
+}
 
 # static ui components --------------------------------------------------------------
 
@@ -195,36 +205,39 @@ server <- function(input, output, session) {
                 
                 fluidRow(
                     column(
-                        width = 3,
+                        width = 2,
                         
-                        actionButton(
-                            "clear_asset_building",
-                            "Clear Building Asset Table"
-                        ),
-                        
-                        actionButton(
-                            "clear_asset_vehicle",
-                            "Clear Vehicle Asset Table"
-                        ),
-                        
-                        actionButton(
-                            "clear_emission_record_building",
-                            "Clear Building Emission Record Table"
-                        ),
-                        
-                        actionButton(
-                            "clear_emission_record_vehicle",
-                            "Clear Vehicle Emission Record Table"
-                        ),
-                        
-                        actionButton(
-                            "clear_grid_mix_emission_factor",
-                            "Clear Grix Mix Table"
-                        ),
-                        
-                        actionButton(
-                            "clear_all",
-                            "CLEAR ALL"
+                        wellPanel(
+                            
+                            actionButton(
+                                "clear_asset_building",
+                                "Clear Building Asset Table"
+                            ),
+                            
+                            actionButton(
+                                "clear_asset_vehicle",
+                                "Clear Vehicle Asset Table"
+                            ),
+                            
+                            actionButton(
+                                "clear_emission_record_building",
+                                "Clear Building Emission Record Table"
+                            ),
+                            
+                            actionButton(
+                                "clear_emission_record_vehicle",
+                                "Clear Vehicle Emission Record Table"
+                            ),
+                            
+                            actionButton(
+                                "clear_grid_mix_emission_factor",
+                                "Clear Grix Mix Table"
+                            ),
+                            
+                            actionButton(
+                                "clear_all",
+                                "CLEAR ALL"
+                            )
                         )
                     )
                 )
@@ -404,7 +417,7 @@ server <- function(input, output, session) {
                                                 building_fuel_unit)),
                                 dateRangeInput(
                                     "building_date_range_emission_record", 
-                                    "Date Range*",
+                                    "Date Range* (yyyy-mm-dd)",
                                     start = NA, end = NA),
                                 textInput(
                                     "building_comment_emission_record",
@@ -455,7 +468,9 @@ server <- function(input, output, session) {
                                     choices = c("Select a unit" = "")),
                                 dateRangeInput(
                                     "vehicle_date_range_emission_record", 
-                                    "Date Range*"),
+                                    "Date Range* (yyyy-mm-dd)",
+                                    start = NA,
+                                    end = NA),
                                 textInput(
                                     "vehicle_comment_emission_record",
                                     "Additional Comment"),
@@ -649,11 +664,7 @@ server <- function(input, output, session) {
         }
         
         # load all the tables again
-        load_asset_building()
-        load_asset_vehicle()
-        load_emission_record_building()
-        load_emission_record_vehicle()
-        load_grid_mix_emission_factor()
+        load_all()
         
         
         dbExecute(pool, "VACUUM")
@@ -1589,10 +1600,18 @@ server <- function(input, output, session) {
                     min = 0
                 ),
                 
+                textInput(
+                    "remark_emission_factor",
+                    "Remark",
+                    value = NA
+                ),
+                
                 actionButton(
                     "add_record_grid_mix_emission_factor",
                     "Add record"
-                )
+                ),
+                
+                textOutput("grid_mix_sum_left")
             )            
         } else
             
@@ -1648,10 +1667,18 @@ server <- function(input, output, session) {
                         min = 0
                     ),
                     
+                    textInput(
+                        "remark_emission_factor",
+                        "Remark",
+                        value = NA
+                    ),
+                    
                     actionButton(
                         "add_record_grid_mix_emission_factor",
                         "Add record"
-                    )
+                    ),
+                    
+                    textOutput("grid_mix_sum_left")
                 )
             }        
         
@@ -1717,7 +1744,8 @@ server <- function(input, output, session) {
                 Oil = input$oil_mix_emission_factor,
                 Gas = input$gas_mix_emission_factor,
                 Nuclear = input$nuclear_mix_emission_factor,
-                Renewables = input$renewables_mix_emission_factor
+                Renewables = input$renewables_mix_emission_factor,
+                Remark = input$remark_emission_factor
             )
             
         } else
@@ -1821,6 +1849,12 @@ server <- function(input, output, session) {
             value = NA
         )
         
+        updateTextInput(
+            session,
+            "remark_emission_factor",
+            value = NA
+        )
+        
         
     })
     
@@ -1845,7 +1879,7 @@ server <- function(input, output, session) {
     
     # display message to ask user to select an asset type
     
-    ## asset tables ####
+    ## asset ####
     
     # building table
     output$asset_table_building <- renderDT({
@@ -1866,7 +1900,7 @@ server <- function(input, output, session) {
     })
     
     
-    ## emission record table ####
+    ## emission record ####
     
     # building table
     output$building_table_emission_record <- renderDT({
@@ -1882,13 +1916,29 @@ server <- function(input, output, session) {
                   selection = "single")
     })
     
-    ## emission factor table ####
+    ## emission factor ####
     
     # grid mix table
     output$ele_grid_mix_table <- renderDT({
         datatable(ele_grid_mix_table(),
                   selection = "single",
                   options = list(dom = 't'))
+    })
+    
+    # grid mix sum text output
+    output$grid_mix_sum_left <- renderText({
+        
+        paste("(Remaining share:", 
+              100 - sum(
+                  c(input$coal_mix_emission_factor,
+                    input$oil_mix_emission_factor,
+                    input$gas_mix_emission_factor,
+                    input$nuclear_mix_emission_factor,
+                    input$renewables_mix_emission_factor),
+                  na.rm = TRUE
+              ),
+              "%)"
+        )
     })
     
     # FERA table
