@@ -15,7 +15,9 @@ con <- dbConnect(SQLite(), "database/database.sqlite")
 # building asset
 dbExecute(con,
           "CREATE TABLE IF NOT EXISTS asset_building
-          (\"Asset Type\" TEXT,
+          (Country TEXT,
+          City TEXT,
+          \"Asset Type\" TEXT,
           \"Asset Name\" TEXT,
           \"Office Floor Area\" REAL,
           \"Area Unit\" TEXT,
@@ -26,7 +28,9 @@ dbExecute(con,
 # vehicle asset
 dbExecute(con,
           "CREATE TABLE IF NOT EXISTS asset_vehicle
-          (\"Asset Type\" TEXT,
+          (Country TEXT,
+          City TEXT,
+          \"Asset Type\" TEXT,
           \"Asset Name\" TEXT,
           \"Vehicle Type\" TEXT,
           \"Creation Time\" INTEGER)")
@@ -106,10 +110,18 @@ reporting_year <- c(2025:2015)
 renewable_energy_type <- c("Solar", "Wind", "Hydro", "Biomass")
 
 # country and city list (from maps package)
-world_cities <- world.cities |> 
+country_list <- world.cities |> 
     rename("country" = "country.etc") |> # rename the country col
-    mutate(name = str_replace(name, "^'", "")) # remove the leading ' in the col
+    mutate(name = str_replace(name, "^'", "")) |> # remove the leading ' in the col
+    dplyr::distinct(country, .keep_all = TRUE) |>  # keep unique country
+    dplyr::arrange(country) |> 
+    pull(country)
 
+city_df <- world.cities |> 
+    rename("country" = "country.etc") |> # rename the country col
+    mutate(name = str_replace(name, "^'", "")) |> # remove the leading ' in the col
+    dplyr::distinct(name, .keep_all = TRUE) |>  # keep unique country
+    dplyr::arrange(name)
 
 # static ui components --------------------------------------------------------------
 
@@ -181,102 +193,128 @@ server <- function(input, output, session) {
             ),
             
             ## asset tab ####
-            tabItem(tabName = "asset_tab",
-                    
-                    fluidRow(
-                        ### inputs tab box ####
-                        column(
-                            width = 3,
-                            
-                            tabBox(
-                                title = NULL,
-                                id = "asset_inputs_box",
-                                width = NULL,
-                                
-                                #### building ####
-                                tabPanel(
-                                    id = "building_inputs_asset", 
-                                    title = "Building",
-                                    textInput(
-                                        "building_asset_name_asset", "Asset Name*"
-                                    ),
-                                    numericInput(
-                                        "office_area_asset", "Occupied Floor Area",
-                                        value = NA,
-                                        min = 0
-                                    ),
-                                    selectInput(
-                                        "area_unit_asset", "Area Unit",
-                                        choices = c("Select a unit" = "",
-                                                    "m2",
-                                                    "ftsq"),
-                                        selected = ""),
-                                    checkboxInput(
-                                        "subleased_asset", 
-                                        "Subleased Asset?", value = FALSE),
-                                    selectInput(
-                                        "applicable_source_asset",
-                                        "Applicable Emission Sources*",
-                                        choices = c("Select a unit*" = "", 
-                                                    fuel_building),
-                                        multiple = TRUE),
-                                    actionButton(
-                                        "add_record_building_asset",
-                                        "Add Record")        
-                                ),
-                                
-                                #### vehicle ####
-                                tabPanel(
-                                    id = "vehicle_inputs_asset",
-                                    title = "Vehicle",
-                                    textInput(
-                                        "vehicle_asset_name_asset", "Asset Name*"),
-                                    selectInput(
-                                        "vehicle_type_asset", "Vehicle Type*",
-                                        choices = c("Select a vehicle type" = "", 
-                                                    vehicle_type)),
-                                    actionButton(
-                                        "add_record_vehicle_asset", 
-                                        "Add Record")
-                                )
-                            )
-                        ),
+            tabItem(
+                tabName = "asset_tab",
+                
+                fluidRow(
+                    ### inputs tab box ####
+                    column(
+                        width = 3,
                         
-                        ### table tab box ####
-                        column(width = 9,
-                               
-                               tabBox(
-                                   title = NULL,
-                                   id = "asset_table_asset",
-                                   width = NULL,
-                                   
-                                   #### building ####
-                                   tabPanel(
-                                       
-                                       id = "building_table_asset",
-                                       title = "Building",
-                                       div(
-                                           style = "overflow-x: auto; min-height: 100px;",  
-                                           DTOutput("asset_table_building")
-                                       )
-                                       
-                                   ),
-                                   
-                                   #### vehicle ####
-                                   tabPanel(
-                                       
-                                       id = "vehicle_table_asset",
-                                       title = "Vehciel",
-                                       div(
-                                           style = "overflow-x: auto; min-height: 100px;",  
-                                           DTOutput("asset_table_vehicle")
-                                       )
-                                       
-                                   )
-                                   
-                               )
+                        tabBox(
+                            title = NULL,
+                            id = "asset_inputs_box",
+                            width = NULL,
+                            
+                            #### building ####
+                            tabPanel(
+                                id = "building_inputs_asset", 
+                                title = "Building",
+                                selectInput(
+                                    "country_asset_building",
+                                    "Country*",
+                                    choices = c("Select a country" = "",
+                                                country_list)
+                                ),
+                                selectInput(
+                                    "city_asset_building",
+                                    "City",
+                                    choices = c("Select a city" = "")
+                                ),
+                                textInput(
+                                    "building_asset_name_asset", 
+                                    "Asset Name*"
+                                ),
+                                numericInput(
+                                    "office_area_asset",
+                                    "Occupied Floor Area",
+                                    value = NA,
+                                    min = 0
+                                ),
+                                selectInput(
+                                    "area_unit_asset", "Area Unit",
+                                    choices = c("Select a unit" = "",
+                                                "m2",
+                                                "ftsq"),
+                                    selected = ""),
+                                checkboxInput(
+                                    "subleased_asset", 
+                                    "Subleased Asset?", value = FALSE),
+                                selectInput(
+                                    "applicable_source_asset",
+                                    "Applicable Emission Sources*",
+                                    choices = c("Select a unit*" = "", 
+                                                fuel_building),
+                                    multiple = TRUE),
+                                actionButton(
+                                    "add_record_building_asset",
+                                    "Add Record")        
+                            ),
+                            
+                            #### vehicle ####
+                            tabPanel(
+                                id = "vehicle_inputs_asset",
+                                title = "Vehicle",
+                                selectInput(
+                                    "country_asset_vehicle",
+                                    "Country*",
+                                    choices = c("Select a country" = "",
+                                                country_list)
+                                ),
+                                selectInput(
+                                    "city_asset_vehicle",
+                                    "City",
+                                    choices = c("Select a city" = "")
+                                ),
+                                textInput(
+                                    "vehicle_asset_name_asset", "Asset Name*"),
+                                selectInput(
+                                    "vehicle_type_asset", "Vehicle Type*",
+                                    choices = c("Select a vehicle type" = "", 
+                                                vehicle_type)),
+                                actionButton(
+                                    "add_record_vehicle_asset", 
+                                    "Add Record")
+                            )
+                        )
+                    ),
+                    
+                    ### table tab box ####
+                    column(
+                        width = 9,
+                        
+                        tabBox(
+                            title = NULL,
+                            id = "asset_table_asset",
+                            width = NULL,
+                            
+                            #### building ####
+                            tabPanel(
+                                
+                                id = "building_table_asset",
+                                title = "Building",
+                                div(
+                                    style = "overflow-x: auto; min-height: 100px;",  
+                                    DTOutput("asset_table_building")
+                                )
+                                
+                            ),
+                            
+                            #### vehicle ####
+                            tabPanel(
+                                
+                                id = "vehicle_table_asset",
+                                title = "Vehciel",
+                                div(
+                                    style = "overflow-x: auto; min-height: 100px;",  
+                                    DTOutput("asset_table_vehicle")
+                                )
+                                
+                            )
+                            
                         )
                     )
+                )
             ),
             
             ## emission record tab ####
@@ -493,6 +531,48 @@ server <- function(input, output, session) {
     
     ## asset table ####
     
+    ### update selectinput ####
+    
+    # building asset
+    observeEvent(input$country_asset_building, {
+        # create the unique city list of the chosen country
+        temp_city_list <- city_df |> 
+            filter(country == input$country_asset_building) |> 
+            dplyr::distinct(name) |> 
+            arrange(name) |> 
+            pull(name)
+        
+        # update the select input
+        updateSelectInput(
+            session,
+            "city_asset_building",
+            choices = c(
+                "Select a city" = "",
+                temp_city_list
+            )
+        )
+    })
+    
+    # vehicle asset
+    observeEvent(input$country_asset_vehicle, {
+        # create the unique city list of the chosen country
+        temp_city_list <- city_df |> 
+            filter(country == input$country_asset_vehicle) |> 
+            dplyr::distinct(name) |> 
+            arrange(name) |> 
+            pull(name)
+        
+        # update the select input
+        updateSelectInput(
+            session,
+            "city_asset_vehicle",
+            choices = c(
+                "Select a city" = "",
+                temp_city_list
+            )
+        )
+    })
+    
     ### add new record ####
     
     #### building ####
@@ -526,6 +606,8 @@ server <- function(input, output, session) {
     observeEvent(input$add_record_building_asset, {
         # Create a new record
         new_record <- tibble(
+            Country = input$country_asset_building,
+            City = input$city_asset_building,
             "Asset Type" = "Building",
             "Asset Name" = input$building_asset_name_asset,
             "Office Floor Area" = input$office_area_asset,
@@ -539,6 +621,7 @@ server <- function(input, output, session) {
         
         # Check for incomplete record
         if (
+            !nzchar(new_record$Country) |
             !nzchar(new_record$`Asset Name`) |
             !nzchar(new_record$`Applicable Emission Sources`)
         ) {
@@ -579,6 +662,18 @@ server <- function(input, output, session) {
         load_asset_building()
         
         # clear inputs
+        updateSelectInput(
+            session,
+            "country_asset_building",
+            selected = ""
+        )
+        
+        updateSelectInput(
+            session,
+            "city_asset_building",
+            selected = ""
+        )
+        
         updateTextInput(session,
                         "building_asset_name_asset",
                         value = NA)
@@ -633,6 +728,8 @@ server <- function(input, output, session) {
     observeEvent(input$add_record_vehicle_asset, {
         # Create a new record
         new_record <- tibble(
+            Country = input$country_asset_vehicle,
+            City = input$city_asset_vehicle,
             "Asset Type" = "Vehicle",
             "Asset Name" = input$vehicle_asset_name_asset,
             "Vehicle Type" = input$vehicle_type_asset,
@@ -640,6 +737,7 @@ server <- function(input, output, session) {
         
         # check for incomplete record
         if (
+            !nzchar(new_record$Country) |
             !nzchar(new_record$`Asset Name`) |
             !nzchar(new_record$`Vehicle Type`) 
         ) {
@@ -680,6 +778,18 @@ server <- function(input, output, session) {
         load_asset_vehicle()
         
         # clear inputs
+        updateSelectInput(
+            session,
+            "country_asset_vehicle",
+            selected = ""
+        )
+        
+        updateSelectInput(
+            session,
+            "city_asset_vehicle",
+            selected = ""
+        )
+        
         updateTextInput(session,
                         "vehicle_asset_name_asset",
                         value = NA)
@@ -1276,7 +1386,7 @@ server <- function(input, output, session) {
         )
         
         # get the unique city names from of the chosen country
-        temp_city_list <- world_cities |> 
+        temp_city_list <- city_df |> 
             filter(country == input$country_emission_factor) |> 
             distinct(name)
         
@@ -1308,10 +1418,7 @@ server <- function(input, output, session) {
                     "country_emission_factor",
                     "Select a country*",
                     choices = c("Select a country" = "",
-                                distinct(world_cities,
-                                         country) |>
-                                    arrange(country)),
-                    selected = ""
+                                country_list)
                 ),
                 
                 numericInput(
@@ -1364,10 +1471,7 @@ server <- function(input, output, session) {
                         "country_emission_factor",
                         "Select a country*",
                         choices = c("Select a country" = "",
-                                    distinct(world_cities,
-                                             country) |>
-                                        arrange(country)),
-                        selected = ""
+                                    country_list)
                     ),
                     
                     selectInput(
@@ -1656,14 +1760,14 @@ server <- function(input, output, session) {
     
     # FERA table
     output$FERA_emission_factor_table <- renderDT({
-        datatable(world_cities,
+        datatable(city_df,
                   selection = "single",
                   options = list(dom = 't'))
     })
     
     # S1 and S2 table
     output$s1_2_emission_factor_table <- renderDT({
-        datatable(world_cities,
+        datatable(city_df,
                   selection = "single",
                   options = list(dom = 't'))
     })
