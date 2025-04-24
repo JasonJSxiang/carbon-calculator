@@ -607,10 +607,11 @@ server <- function(input, output, session) {
                         width = 9,
                         
                         tabBox(
-                            width = 12,
+                            width = NULL,
+                            
                             tabPanel(
                                 title = "Grid Mix",
-                                id = "grix_mix_emission_factor_table",
+                                id = "grid_mix_emission_factor_table",
                                 DTOutput("ele_grid_mix_table")
                             ),
                             tabPanel(
@@ -622,6 +623,17 @@ server <- function(input, output, session) {
                                 title = "Scope 1 and 2",
                                 id = "s1_2_emission_factor_table",
                                 DTOutput("s1_2_emission_factor_table")
+                            )
+                        ),
+                        
+                        tabBox(
+                            width = NULL,
+                            title = "Grid mix default EF",
+                            
+                            tabPanel(
+                                title = "",
+                                id = "grid_mix_default_ef_table",
+                                DTOutput("default_grid_mix_table")
                             )
                         )
                     )
@@ -1428,8 +1440,10 @@ server <- function(input, output, session) {
                 new_building_consumption_record$`Hash ID`,
             `Asset Name` = new_building_consumption_record$`Asset Name`,
             `Fuel Type` = new_building_consumption_record$`Fuel Type`,
-            `LB Emission` = 000,
-            `MB Emission` = 000,
+            `LB Emission` = 
+                new_building_consumption_record$Consumption *
+                default_grid_mix_table$Average,
+            `MB Emission` = 0,
             `Start Date` = new_building_consumption_record$`Start Date`,
             `End Date` = new_building_consumption_record$`End Date`,
             `Creation Time` = Sys.time()
@@ -1464,6 +1478,7 @@ server <- function(input, output, session) {
     
     # initial table for vehicle consumption record
     vehicle_table_consumption_record <- reactiveVal(NULL)
+    emission_record_vehicle <- reactiveVal(NULL)
     
     # create function to cache database 
     load_consumption_record_vehicle <- function() {
@@ -1482,12 +1497,22 @@ server <- function(input, output, session) {
         vehicle_table_consumption_record(data)
     }
     
+    load_emission_record_vehicle <- function() {
+        
+        # extract the table from the database
+        data <- dbGetQuery(
+            pool,
+            "SELECT *
+            FROM emission_record_vehicle"
+        )
+        
+        # load the table into the empty reactive value
+        emission_record_vehicle(data)
+    }
+    
     # initialise the database
-    observe({
-        load_consumption_record_vehicle()
-    })
-    
-    
+    observe({load_consumption_record_vehicle()})
+    observe({load_emission_record_vehicle()})
     
     # Add new record: Vehicle
     observeEvent(input$add_vehicle_consumption_record, {
@@ -1591,7 +1616,7 @@ server <- function(input, output, session) {
                                       algo = "murmur32")
         
         # save the Hash ID in the global envi.
-        new_vehicle_consumption_record <<- new_record
+        new_vehicle_consumption_record <- new_record
         
         # update the reactive value with new record
         dbWriteTable(pool,
@@ -1629,50 +1654,14 @@ server <- function(input, output, session) {
                         "vehicle_comment_consumption_record",
                         value = "")
         
-    })
-    
-    ## emission record table ####
-    
-    ### building ####
-    
-    
-    
-    
-    
-    ## vehicle #### 
-    
-    # create an empty reactive value
-    emission_record_vehicle <- reactiveVal(NULL)
-    
-    # create a function that caches database info
-    load_emission_record_vehicle <- function() {
-        
-        # extract the table from the database
-        data <- dbGetQuery(
-            pool,
-            "SELECT *
-            FROM emission_record_vehicle"
-        )
-        
-        # load the table into the empty reactive value
-        emission_record_vehicle(data)
-    }
-    
-    # initialise the table in r
-    observe({
-        load_emission_record_vehicle()
-    })
-    
-    # procedure to update the database
-    observeEvent(input$add_vehicle_consumption_record, {
-        
+        # for emission record below
         new_record <- tibble(
             `Consumption Record Hash ID` =
                 new_vehicle_consumption_record$`Hash ID`,
             `Asset Name` = new_vehicle_consumption_record$`Asset Name`,
             `Fuel Type` = new_vehicle_consumption_record$`Fuel Type`,
-            `LB Emission` = 000,
-            `MB Emission` = 000,
+            `LB Emission` = 0,
+            `MB Emission` = 0,
             `Start Date` = new_vehicle_consumption_record$`Start Date`,
             `End Date` = new_vehicle_consumption_record$`End Date`,
             `Creation Time` = Sys.time()
@@ -1701,9 +1690,8 @@ server <- function(input, output, session) {
         # refresh the table
         load_emission_record_vehicle()
         
+        
     })
-    
-    
     
     ## emission factor table ####
     
@@ -2045,21 +2033,31 @@ server <- function(input, output, session) {
         
     })
     
-    
-    
+    # 1.2 Default grid mix emission factor
+    default_grid_mix_table <- tibble(
+        Country = "China",
+        City = NA,
+        Coal = 348.84,
+        Oil = 263.88,
+        Gas = round(56.1*1000000/277778, 2),
+        Nuclear = 12,
+        Renewables = 0,
+        Average = mean(
+            c(Coal,
+              Oil,
+              Gas,
+              Nuclear,
+              Renewables),
+            na.rm = TRUE
+        ),
+        Remark = "https://data.ncsc.org.cn/factoryes/indexMod/indexModIlibrary?
+        templateName=%E8%A1%8C%E4%B8%9A%E4%BC%81%E4%B8%9A%E6%8E%92%E6%94%BE%E5%
+        9B%A0%E5%AD%90"
+    )
     
     # 2. FERA values for scope 1 and 2 all fuels
     
     # 3. emission factor for scope 1 and 2 all fuels 
-    
-    #
-    
-    
-    
-    
-    
-    
-    
     
     
     # render ------------------------------------------------------------------
@@ -2138,6 +2136,14 @@ server <- function(input, output, session) {
         datatable(ele_grid_mix_table(),
                   selection = "single",
                   options = list(dom = 't'))
+    })
+    
+    # default grid mix emission factor
+    output$default_grid_mix_table <- renderDT({
+        datatable(default_grid_mix_table,
+                  selection = "single",
+                  options = list(dom = "t")
+        )
     })
     
     # grid mix sum text output
