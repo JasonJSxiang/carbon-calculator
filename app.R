@@ -11,16 +11,8 @@ library(plotly)
 
 # Initialise database ------------------------------------------------------------
 con <- dbConnect(SQLite(), "database/database.sqlite")
-dbExecute(con, 
-          "CREATE TABLE IF NOT EXISTS grid_mix_emission_factor  
-          (Country TEXT,
-          City TEXT,
-          Coal REAL,
-          Oil REAL,
-          Gas REAL,
-          Nuclear REAL,
-          Renewables REAL)")
 
+# building asset
 dbExecute(con,
           "CREATE TABLE IF NOT EXISTS asset_building
           (\"Asset Type\" TEXT,
@@ -29,15 +21,17 @@ dbExecute(con,
           \"Area Unit\" TEXT,
           \"Subleased?\" INTEGER,
           \"Applicable Emission Sources\" TEXT,
-          \"Creation Time\" REAL)")
+          \"Creation Time\" INTEGER)")
 
+# vehicle asset
 dbExecute(con,
           "CREATE TABLE IF NOT EXISTS asset_vehicle
           (\"Asset Type\" TEXT,
           \"Asset Name\" TEXT,
           \"Vehicle Type\" TEXT,
-          \"Creation Time\" REAL)")
+          \"Creation Time\" INTEGER)")
 
+# emission record: building
 dbExecute(con,
           "CREATE TABLE IF NOT EXISTS emission_record_building
           (\"Asset Name\" TEXT,
@@ -48,11 +42,12 @@ dbExecute(con,
           \"Renewable?\" TEXT,
           \"Renewable Energy Consumption (kWh)\" REAL,
           \"Renewable Energy Type\" TEXT,
-          \"Start Date\" REAL,
-          \"End Date\" REAL,
+          \"Start Date\" INTEGER,
+          \"End Date\" INTEGER,
           \"Additional Comment\" TEXT,
-          \"Creation Time\" REAL)")
+          \"Creation Time\" INTEGER)")
 
+# emission record: vehicle
 dbExecute(con,
           "CREATE TABLE IF NOT EXISTS emission_record_vehicle
           (\"Asset Name\" TEXT,
@@ -61,10 +56,21 @@ dbExecute(con,
           \"Data Type\" TEXT,
           Amount REAL,
           Unit TEXT,
-          \"Start Date\" REAL,
-          \"End Date\" REAL,
+          \"Start Date\" INTEGER,
+          \"End Date\" INTEGER,
           \"Additional Comment\" TEXT,
-          \"Creation Time\" REAL)")
+          \"Creation Time\" INTEGER)")
+
+# emission factor: grid mix
+dbExecute(con, 
+          "CREATE TABLE IF NOT EXISTS grid_mix_emission_factor  
+          (Country TEXT,
+          City TEXT,
+          Coal REAL,
+          Oil REAL,
+          Gas REAL,
+          Nuclear REAL,
+          Renewables REAL)")
 
 dbDisconnect(con)
 
@@ -500,7 +506,12 @@ server <- function(input, output, session) {
         # first load the existing data from the database
         data <- dbGetQuery(pool,
                            "SELECT *
-                           FROM asset_building")
+                           FROM asset_building") |> 
+            mutate(`Creation Time` = as_datetime(
+                `Creation Time`, 
+                tz = tz(Sys.timezone())
+            )
+            )
         
         # then pass loaded data to the NULL reactive function just created
         asset_table_building(data)
@@ -550,6 +561,14 @@ server <- function(input, output, session) {
             return()
         }
         
+        # convert POSIXct and Date variable as numeric
+        new_record <- new_record |>
+            mutate(across(  # 对多列同时进行修改
+                # 选择所有日期时间列
+                .cols = where(~ inherits(., "POSIXct") | inherits(., "Date")), 
+                .fns = as.numeric  # 把这些列转换成数字
+            ))
+        
         # update the database by appending the new record
         dbWriteTable(pool, "asset_building", new_record, append = TRUE)
         showNotification("New building record added",
@@ -593,7 +612,12 @@ server <- function(input, output, session) {
         # first load the existing data from the database
         data <- dbGetQuery(pool,
                            "SELECT *
-                           FROM asset_vehicle")
+                           FROM asset_vehicle") |> 
+            mutate(`Creation Time` = as_datetime(
+                `Creation Time`, 
+                tz = tz(Sys.timezone())
+            )
+            )
         
         # then pass loaded data to the NULL reactive function just created
         asset_table_vehicle(data)
@@ -637,6 +661,14 @@ server <- function(input, output, session) {
                              closeButton = TRUE)
             return()
         }
+        
+        # convert POSIXct and Date variable as numeric
+        new_record <- new_record |>
+            mutate(across(  # 对多列同时进行修改
+                # 选择所有日期时间列
+                .cols = where(~ inherits(., "POSIXct") | inherits(., "Date")), 
+                .fns = as.numeric  # 把这些列转换成数字
+            ))
         
         # update the database by appending the new record
         dbWriteTable(pool, "asset_vehicle", new_record, append = TRUE)
@@ -860,7 +892,15 @@ server <- function(input, output, session) {
     load_emission_record_building <- function() {
         data <- dbGetQuery(pool,
                            "SELECT *
-                           FROM emission_record_building")
+                           FROM emission_record_building") |> 
+            mutate(`Creation Time` = 
+                       as_datetime(
+                           `Creation Time`, 
+                           tz = tz(Sys.timezone())
+                       ),
+                   `Start Date` = as_date(`Start Date`),
+                   `End Date` = as_date(`End Date`)
+            )
         
         building_table_emission_record(data)
     }
@@ -1003,6 +1043,13 @@ server <- function(input, output, session) {
             return()
         }
         
+        # convert POSIXct and Date variable as numeric
+        new_record <- new_record |>
+            mutate(across(  # 对多列同时进行修改
+                # 选择所有日期时间列
+                .cols = where(~ inherits(., "POSIXct") | inherits(., "Date")), 
+                .fns = as.numeric  # 把这些列转换成数字
+            ))
         
         # update the reactive value with new record
         dbWriteTable(pool,
@@ -1063,7 +1110,15 @@ server <- function(input, output, session) {
     load_emission_record_vehicle <- function() {
         data <- dbGetQuery(pool,
                            "SELECT *
-                           FROM emission_record_vehicle")
+                           FROM emission_record_vehicle") |> 
+            mutate(`Creation Time` = 
+                       as_datetime(
+                           `Creation Time`, 
+                           tz = tz(Sys.timezone())
+                       ),
+                   `Start Date` = as_date(`Start Date`),
+                   `End Date` = as_date(`End Date`)
+            )
         
         vehicle_table_emission_record(data)
     }
@@ -1161,6 +1216,14 @@ server <- function(input, output, session) {
             
             return()
         }
+        
+        # convert POSIXct and Date variable as numeric
+        new_record <- new_record |>
+            mutate(across(  # 对多列同时进行修改
+                # 选择所有日期时间列
+                .cols = where(~ inherits(., "POSIXct") | inherits(., "Date")), 
+                .fns = as.numeric  # 把这些列转换成数字
+            ))
         
         # update the reactive value with new record
         dbWriteTable(pool,
@@ -1463,6 +1526,14 @@ server <- function(input, output, session) {
                 )
             }
         
+        
+        # convert POSIXct and Date variable as numeric
+        new_table <- new_table |>
+            mutate(across(  # 对多列同时进行修改
+                # 选择所有日期时间列
+                .cols = where(~ inherits(., "POSIXct") | inherits(., "Date")), 
+                .fns = as.numeric  # 把这些列转换成数字
+            ))
         
         # update the data with the new table
         dbWriteTable(pool, "grid_mix_emission_factor", new_table, append = TRUE)
