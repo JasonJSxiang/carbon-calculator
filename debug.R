@@ -109,11 +109,11 @@ dbExecute(
     "CREATE TABLE IF NOT EXISTS grid_mix_emission_factor  
     (Country TEXT,
     City TEXT,
-    \"Coal (%)\" REAL,
-    \"Oil (%)\" REAL,
-    \"Gas (%)\" REAL,
-    \"Nuclear (%)\" REAL,
-    \"Renewables (%) \" REAL,
+    \"Coal\" REAL,
+    \"Oil\" REAL,
+    \"Gas\" REAL,
+    \"Nuclear\" REAL,
+    \"Renewables\" REAL,
     Remark TEXT)")
 
 dbDisconnect(con)
@@ -1955,7 +1955,7 @@ server <- function(input, output, session) {
                     return()
                 }
                 
-                new_table <<- tibble(
+                new_table <- tibble(
                     Country = input$country_emission_factor,
                     City = input$city_emission_factor,
                     Coal = input$coal_mix_emission_factor,
@@ -1964,7 +1964,11 @@ server <- function(input, output, session) {
                     Nuclear = input$nuclear_mix_emission_factor,
                     Renewables = input$renewables_mix_emission_factor
                 )
+                # create the object in Global envi
+                new_table <<- new_table 
+                
             }
+        
         
         
         # convert POSIXct and Date variable as numeric
@@ -2042,14 +2046,12 @@ server <- function(input, output, session) {
         Gas = round(56.1*1000000/277778, 2),
         Nuclear = 12,
         Renewables = 0,
-        Average = mean(
-            c(Coal,
-              Oil,
-              Gas,
-              Nuclear,
-              Renewables),
-            na.rm = TRUE
-        ),
+        Average = (new_table$Coal * 
+                       Coal + new_table$Oil * 
+                       Oil + new_table$Gas *
+                       Gas + new_table$Nuclear *
+                       Nuclear + new_table$Renewables *
+                       Renewables) / 100,
         Remark = "https://data.ncsc.org.cn/factoryes/indexMod/indexModIlibrary?
         templateName=%E8%A1%8C%E4%B8%9A%E4%BC%81%E4%B8%9A%E6%8E%92%E6%94%BE%E5%
         9B%A0%E5%AD%90"
@@ -2150,13 +2152,16 @@ server <- function(input, output, session) {
     output$grid_mix_sum_left <- renderText({
         
         paste("(Remaining share:", 
-              100 - sum(
-                  c(input$coal_mix_emission_factor,
-                    input$oil_mix_emission_factor,
-                    input$gas_mix_emission_factor,
-                    input$nuclear_mix_emission_factor,
-                    input$renewables_mix_emission_factor),
-                  na.rm = TRUE
+              round(
+                  100 - sum(
+                      c(input$coal_mix_emission_factor,
+                        input$oil_mix_emission_factor,
+                        input$gas_mix_emission_factor,
+                        input$nuclear_mix_emission_factor,
+                        input$renewables_mix_emission_factor),
+                      na.rm = TRUE
+                  ),
+                  2
               ),
               "%)"
         )
