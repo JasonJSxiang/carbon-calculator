@@ -1432,47 +1432,47 @@ server <- function(input, output, session) {
                         "building_comment_consumption_record",
                         value = "")
         
-        # procedure to auto-calculate the emission
-        
-        # compile the new record
-        new_record <- tibble(
-            `Consumption Record Hash ID` =
-                new_building_consumption_record$`Hash ID`,
-            `Asset Name` = new_building_consumption_record$`Asset Name`,
-            `Fuel Type` = new_building_consumption_record$`Fuel Type`,
-            `LB Emission` = 
-                round(
-                    (new_building_consumption_record$Consumption *
-                         default_grid_mix_ef_table$Average) / 1000,
-                    2),
-            `MB Emission` = 0,
-            `Start Date` = new_building_consumption_record$`Start Date`,
-            `End Date` = new_building_consumption_record$`End Date`,
-            `Creation Time` = Sys.time()
-        )
-        
-        # convert POSIXct and Date variable as numeric
-        new_record <- new_record |>
-            mutate(across(  # 对多列同时进行修改
-                # 选择所有日期时间列
-                .cols = where(~ inherits(., "POSIXct") | inherits(., "Date")), 
-                .fns = as.numeric  # 把这些列转换成数字
-            ))
-        
-        # create a Hash ID for the record
-        new_record$`Hash ID` <- apply(new_record, 
-                                      1,
-                                      digest, 
-                                      algo = "murmur32")
-        
-        # update the reactive value with new record
-        dbWriteTable(pool,
-                     "emission_record_building",
-                     new_record,
-                     append = TRUE)
-        
-        # refresh the table
-        load_emission_record_building()
+        # # procedure to auto-calculate the emission
+        # 
+        # # compile the new record
+        # new_record <- tibble(
+        #     `Consumption Record Hash ID` =
+        #         new_building_consumption_record$`Hash ID`,
+        #     `Asset Name` = new_building_consumption_record$`Asset Name`,
+        #     `Fuel Type` = new_building_consumption_record$`Fuel Type`,
+        #     `LB Emission` = 
+        #         round(
+        #             (new_building_consumption_record$Consumption *
+        #                  default_grid_mix_ef_table$Average) / 1000,
+        #             2),
+        #     `MB Emission` = 0,
+        #     `Start Date` = new_building_consumption_record$`Start Date`,
+        #     `End Date` = new_building_consumption_record$`End Date`,
+        #     `Creation Time` = Sys.time()
+        # )
+        # 
+        # # convert POSIXct and Date variable as numeric
+        # new_record <- new_record |>
+        #     mutate(across(  # 对多列同时进行修改
+        #         # 选择所有日期时间列
+        #         .cols = where(~ inherits(., "POSIXct") | inherits(., "Date")), 
+        #         .fns = as.numeric  # 把这些列转换成数字
+        #     ))
+        # 
+        # # create a Hash ID for the record
+        # new_record$`Hash ID` <- apply(new_record, 
+        #                               1,
+        #                               digest, 
+        #                               algo = "murmur32")
+        # 
+        # # update the reactive value with new record
+        # dbWriteTable(pool,
+        #              "emission_record_building",
+        #              new_record,
+        #              append = TRUE)
+        # 
+        # # refresh the table
+        # load_emission_record_building()
     })
     
     
@@ -2036,38 +2036,49 @@ server <- function(input, output, session) {
         
     })
     
-    # 1.2 Default grid mix emission factor
-    default_grid_mix_ef_table <- tibble(
-        Country = "China",
-        City = NA,
-        Coal = 348.84,
-        Oil = 263.88,
-        Gas = round(56.1*1000000/277778, 2),
-        Nuclear = 12,
-        Renewables = 0,
-        Remark = "https://data.ncsc.org.cn/factoryes/indexMod/indexModIlibrary?
-        templateName=%E8%A1%8C%E4%B8%9A%E4%BC%81%E4%B8%9A%E6%8E%92%E6%94%BE%E5%
-        9B%A0%E5%AD%90"
-    )
+    # 1.2 Default grid mix emission factor for China
     
-    # get the only grid mix record stored in the database
+    # get the grid mix record stored in the database
     grid_mix_record <- dbGetQuery(
         pool,
         "SELECT *
         FROM grid_mix_emission_factor"
     )
     
-    # create a new Average col in the default grid mix ef table after Renewables
-    default_grid_mix_ef_table <- default_grid_mix_ef_table |> 
-        mutate(
-            Average = (grid_mix_record$Coal *
-                           Coal + grid_mix_record$Oil *
-                           Oil + grid_mix_record$Gas *
-                           Gas + grid_mix_record$Nuclear *
-                           Nuclear + grid_mix_record$Renewables *
-                           Renewables) / 100,
-            .after = Renewables
+    default_grid_mix_ef_table <- reactive({
+        req(nrow(grid_mix_record) > 0)
+        
+        default_grid_mix_ef_table <- tibble(
+            Country = "China",
+            City = NA,
+            Coal = 348.84,
+            Oil = 263.88,
+            Gas = round(56.1*1000000/277778, 2),
+            Nuclear = 12,
+            Renewables = 0,
+            Remark = "https://data.ncsc.org.cn/factoryes/indexMod/indexModIlibrary?
+        templateName=%E8%A1%8C%E4%B8%9A%E4%BC%81%E4%B8%9A%E6%8E%92%E6%94%BE%E5%
+        9B%A0%E5%AD%90"
         )
+        
+        # create a new Average col in the default grid mix ef table after Renewable
+        default_grid_mix_ef_table <- default_grid_mix_ef_table |>
+            mutate(
+                Average =
+                    (grid_mix_record$Coal *
+                         Coal + grid_mix_record$Oil *
+                         Oil + grid_mix_record$Gas *
+                         Gas + grid_mix_record$Nuclear *
+                         Nuclear + grid_mix_record$Renewables *
+                         Renewables)
+                / 100,
+                .after = Renewables
+            )
+    })
+    
+    
+    
+    
     
     # 2. FERA values for scope 1 and 2 all fuels
     
@@ -2154,7 +2165,7 @@ server <- function(input, output, session) {
     
     # default grid mix emission factor
     output$default_grid_mix_ef_table <- renderDT({
-        datatable(default_grid_mix_ef_table,
+        datatable(default_grid_mix_ef_table(),
                   selection = "single",
                   options = list(dom = "t")
         )
