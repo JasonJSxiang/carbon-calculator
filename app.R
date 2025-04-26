@@ -185,6 +185,11 @@ db_sidebar <- dashboardSidebar(
         menuItem("Emission Factor",
                  tabName = "emission_factor_tab",
                  icon = icon("clipboard")),
+        menuItem(
+            "Emission Record",
+            tabName = "emission_record_tab",
+            icon = icon("clipboard-user")
+        ),
         menuItem("Inventories",
                  tabName = "carbon_inventory_tab",
                  icon = icon("dashboard"))
@@ -639,6 +644,16 @@ server <- function(input, output, session) {
                     )
                     
                 )
+            ),
+            
+            ## emission record tab ####
+            tabItem(
+                tabName = "emission_record_tab",
+                
+                fluidRow(
+                    "Placeholder"
+                )
+                
             ),
             
             ## carbon inventory tab ####
