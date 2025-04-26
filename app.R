@@ -179,8 +179,8 @@ db_sidebar <- dashboardSidebar(
         menuItem("Asset", 
                  tabName = "asset_tab", 
                  icon = icon("building")),
-        menuItem("Emission Record",
-                 tabName = "emission_record_tab",
+        menuItem("Consumption Record",
+                 tabName = "consumption_record_tab",
                  icon = icon("table-list")),
         menuItem("Emission Factor",
                  tabName = "emission_factor_tab",
@@ -400,9 +400,9 @@ server <- function(input, output, session) {
                 )
             ),
             
-            ## emission record tab ####
+            ## consumption record tab ####
             tabItem(
-                tabName = "emission_record_tab",
+                tabName = "consumption_record_tab",
                 
                 fluidRow(
                     
@@ -1004,7 +1004,7 @@ server <- function(input, output, session) {
         
     })
     
-    ## emission record sidebar ####
+    ## consumption record sidebar ####
     
     ### update input fields ####
     
