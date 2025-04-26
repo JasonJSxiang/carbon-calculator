@@ -43,6 +43,8 @@ dbExecute(
     con,
     "CREATE TABLE IF NOT EXISTS consumption_record_building
           (\"Hash ID\" TEXT,
+          Country TEXT,
+          City TEXT,
           \"Asset Name\" TEXT,
           \"Reporting Year\" INTEGER,
           \"Fuel Type\" TEXT,
@@ -61,6 +63,8 @@ dbExecute(
     con,
     "CREATE TABLE IF NOT EXISTS consumption_record_vehicle
           (\"Hash ID\" TEXT,
+          Country TEXT,
+          City TEXT,
           \"Asset Name\" TEXT,
           \"Reporting Year\" INTEGER,
           \"Fuel Type\" TEXT,
@@ -545,34 +549,7 @@ server <- function(input, output, session) {
                                 )
                             )
                             
-                        ),
-                        
-                        tabBox(
-                            title = "Emission Record",
-                            id = "emission_record_table",
-                            width = NULL,
-                            
-                            #### building ####
-                            tabPanel(
-                                title = "Building",
-                                id = "building_emission_record_table",
-                                div(
-                                    style = "overflow-x: auto; min-height: 100px;",    
-                                    DTOutput("emission_record_building")
-                                )
-                            ),
-                            
-                            #### vehicle ####
-                            tabPanel(
-                                title = "Vehicle",
-                                id = "vehicle_emission_record_table",
-                                div(
-                                    style = "overflow-x: auto; min-height: 100px;",
-                                    DTOutput("emission_record_vehicle")
-                                )
-                            )
                         )
-                        
                     )
                     
                 )
@@ -651,7 +628,123 @@ server <- function(input, output, session) {
                 tabName = "emission_record_tab",
                 
                 fluidRow(
-                    "Placeholder"
+                    column(
+                        width = 12,
+                        
+                        tabBox(
+                            width = NULL,
+                            title = NULL,
+                            id = "emission_record_inputs",
+                            
+                            tabPanel(
+                                title = "Building",
+                                id = "building_emission_record_tab",
+                                
+                                
+                                selectInput(
+                                    "country_emission_record_building",
+                                    "Select a country",
+                                    choices = c("Select a country" = "")
+                                ),
+                                
+                                selectInput(
+                                    "city_emission_record_building",
+                                    "Select a city",
+                                    choices = c("Select a city" = "")
+                                ),
+                                
+                                selectInput(
+                                    "asset_emission_record_building",
+                                    "Select an asset",
+                                    choices = c("Select an asset" = "")
+                                ),
+                                
+                                selectInput(
+                                    "HashID_emission_record_building",
+                                    "Select a Hash ID",
+                                    choices = 
+                                        c("Select a Hash ID" = "")
+                                ),
+                                
+                                tableOutput("selected_emission_record_building"),
+                                
+                                actionButton(
+                                    "add_emission_record_building",
+                                    "Calculate"
+                                ),
+                                
+                            ),
+                            
+                            tabPanel(
+                                title = "Vehicle",
+                                id = "vehicle_emission_record_tab",
+                                
+                                
+                                selectInput(
+                                    "country_consumption_record_vehicle",
+                                    "Select a country",
+                                    choices = c("Select a country" = "")
+                                ),
+                                
+                                selectInput(
+                                    "city_emission_record_vehicle",
+                                    "Select a city",
+                                    choices = c("Select a city" = "")
+                                ),
+                                
+                                selectInput(
+                                    "asset_emission_record_vehicle",
+                                    "Select an asset",
+                                    choices = c("Select an asset" = "")
+                                ),
+                                
+                                selectInput(
+                                    "consumption_record_emission_record_vehicle",
+                                    "Select a consumption reocrd",
+                                    choices = 
+                                        c("Select a consumption record" = "")
+                                ),
+                                
+                                tableOutput("selected_emission_record_vehicle"),
+                                
+                                actionButton(
+                                    "add_emission_record_vehicle",
+                                    "Calculate"
+                                ),
+                                
+                            )
+                        )
+                    ),
+                    
+                    column(
+                        width = 12,
+                        
+                        tabBox(
+                            title = "Emission Record",
+                            id = "emission_record_table",
+                            width = NULL,
+                            
+                            #### building ####
+                            tabPanel(
+                                title = "Building",
+                                id = "building_emission_record_table",
+                                div(
+                                    style = "overflow-x: auto; min-height: 100px;",    
+                                    DTOutput("emission_record_building")
+                                )
+                            ),
+                            
+                            #### vehicle ####
+                            tabPanel(
+                                title = "Vehicle",
+                                id = "vehicle_emission_record_table",
+                                div(
+                                    style = "overflow-x: auto; min-height: 100px;",
+                                    DTOutput("emission_record_vehicle")
+                                )
+                            )
+                        )
+                    )
                 )
                 
             ),
@@ -1210,16 +1303,14 @@ server <- function(input, output, session) {
         
     })
     
-    ## consumption record / emission record table ####
+    ## consumption record ####
     
     ### building ####
     
     # initial tables
     building_table_consumption_record <- reactiveVal(NULL)
-    emission_record_building <- reactiveVal(NULL)
     
     # function to cache database
-    
     load_consumption_record_building <- function() {
         data <- dbGetQuery(
             pool,
@@ -1238,27 +1329,8 @@ server <- function(input, output, session) {
         building_table_consumption_record(data)
     }
     
-    load_emission_record_building <- function() {
-        data <- dbGetQuery(
-            pool,
-            "SELECT *
-            FROM emission_record_building") |> 
-            mutate(
-                `Creation Time` = 
-                    as_datetime(
-                        `Creation Time`, 
-                        tz = tz(Sys.timezone())
-                    ),
-                `Start Date` = as_date(`Start Date`),
-                `End Date` = as_date(`End Date`)
-            )
-        
-        emission_record_building(data)
-    }
-    
     # initialise the database at the start
     observe({load_consumption_record_building()})
-    observe({load_emission_record_building()})
     
     # Add new record: Building
     observeEvent(input$add_building_consumption_record, {
@@ -1398,9 +1470,6 @@ server <- function(input, output, session) {
                                       digest, 
                                       algo = "murmur32")
         
-        # save the new consumption record for later emission calculation
-        new_building_consumption_record <- new_record
-        
         # update the reactive value with new record
         dbWriteTable(pool,
                      "consumption_record_building",
@@ -1446,48 +1515,6 @@ server <- function(input, output, session) {
         updateTextInput(session,
                         "building_comment_consumption_record",
                         value = "")
-        
-        # # procedure to auto-calculate the emission
-        # 
-        # # compile the new record
-        # new_record <- tibble(
-        #     `Consumption Record Hash ID` =
-        #         new_building_consumption_record$`Hash ID`,
-        #     `Asset Name` = new_building_consumption_record$`Asset Name`,
-        #     `Fuel Type` = new_building_consumption_record$`Fuel Type`,
-        #     `LB Emission` = 
-        #         round(
-        #             (new_building_consumption_record$Consumption *
-        #                  default_grid_mix_ef_table$Average) / 1000,
-        #             2),
-        #     `MB Emission` = 0,
-        #     `Start Date` = new_building_consumption_record$`Start Date`,
-        #     `End Date` = new_building_consumption_record$`End Date`,
-        #     `Creation Time` = Sys.time()
-        # )
-        # 
-        # # convert POSIXct and Date variable as numeric
-        # new_record <- new_record |>
-        #     mutate(across(  # 对多列同时进行修改
-        #         # 选择所有日期时间列
-        #         .cols = where(~ inherits(., "POSIXct") | inherits(., "Date")), 
-        #         .fns = as.numeric  # 把这些列转换成数字
-        #     ))
-        # 
-        # # create a Hash ID for the record
-        # new_record$`Hash ID` <- apply(new_record, 
-        #                               1,
-        #                               digest, 
-        #                               algo = "murmur32")
-        # 
-        # # update the reactive value with new record
-        # dbWriteTable(pool,
-        #              "emission_record_building",
-        #              new_record,
-        #              append = TRUE)
-        # 
-        # # refresh the table
-        # load_emission_record_building()
     })
     
     
@@ -2099,6 +2126,200 @@ server <- function(input, output, session) {
     
     # 3. emission factor for scope 1 and 2 all fuels 
     
+    
+    ## emission record ####
+    
+    ### update inputs ####
+    
+    #### building ####
+    # observeEvent(building_table_consumption_record(), {
+    #     req(
+    #         nrow(building_table_consumption_record() > 0)
+    #     )
+    #     
+    #     # update the country first depends on what countries are there in the 
+    #     # consumption record table
+    #     updateSelectInput(
+    #         session,
+    #         "country_emission_record_building",
+    #         choices = 
+    #             c(
+    #                 "Select a country" = "",
+    #                 distinct(building_table_consumption_record(),
+    #                          Country) |> 
+    #                     pull(Country)
+    #             )
+    #     )
+    #     
+    # })
+    # 
+    # observeEvent(input$country_emission_record_building, {
+    #     req(
+    #         input$country_emission_record_building != 0
+    #     )
+    #     
+    #     # filter the table first for the selected country above
+    #     city_list <- building_table_consumption_record() |> 
+    #         filter(Country == input$country_emission_record_building) |> 
+    #         distinct(City) |> 
+    #         pull(City)
+    #     
+    #     # update the city selectinput
+    #     updateSelectInput(
+    #         session,
+    #         "city_emission_record_building",
+    #         choices =
+    #             c(
+    #                 "Select a city" = "",
+    #                 city_list
+    #             )
+    #     )
+    # })
+    # 
+    # observeEvent(input$city_emission_record_building, {
+    #     req(
+    #         input$city_emission_record_building != 0
+    #     )
+    #     
+    #     # filter the table for country and city
+    #     asset_list <- building_table_consumption_record() |> 
+    #         filter(
+    #             Country == input$country_emission_record_building,
+    #             City == input$city_emission_record_building,
+    #         ) |> 
+    #         distinct(`Asset Name`) |> 
+    #         pull(`Asset Name`)
+    #     
+    #     # update the asset selectinput
+    #     updateSelectInput(
+    #         session,
+    #         "asset_emission_record_building",
+    #         choices = 
+    #             c(
+    #                 "Select an asset" = "",
+    #                 asset_list
+    #             )
+    #     )
+    # })
+    # 
+    # observeEvent(input$asset_emission_record_building, {
+    #     req(
+    #         input$asset_emission_record_building != 0
+    #     )
+    #     
+    #     # filter the table for country, city, and asset
+    #     hashID_list <- building_table_consumption_record() |> 
+    #         filter(
+    #             Country == input$country_emission_record_building,
+    #             City == input$city_emission_record_building,
+    #             `Asset Name` == input$asset_emission_record_building
+    #         ) |> 
+    #         distinct(`Hash ID`) |> 
+    #         pull(`Hash ID`)
+    #     
+    #     # update the hash ID selectinput
+    #     updateSelectInput(
+    #         session,
+    #         "HashID_emission_record_building",
+    #         choices = 
+    #             c(
+    #                 "Select a Hash ID" = "",
+    #                 hashID_list
+    #             )
+    #     )
+    # })
+    
+    
+    ### building table ####
+    
+    # initial table
+    emission_record_building <- reactiveVal(NULL)
+    
+    # function to cache database
+    load_emission_record_building <- function() {
+        data <- dbGetQuery(
+            pool,
+            "SELECT *
+            FROM emission_record_building") |> 
+            mutate(
+                `Creation Time` = 
+                    as_datetime(
+                        `Creation Time`, 
+                        tz = tz(Sys.timezone())
+                    ),
+                `Start Date` = as_date(`Start Date`),
+                `End Date` = as_date(`End Date`)
+            )
+        
+        emission_record_building(data)
+    }
+    
+    # initialise the database at the start
+    observe({load_emission_record_building()})
+    
+    # # procedure to auto-calculate the emission
+    # observeEvent(building_table_consumption_record(), {
+    #     # compile the new record
+    #     table <- tibble(
+    #         `Consumption Record Hash ID` =
+    #             new_building_consumption_record$`Hash ID`,
+    #         `Asset Name` = new_building_consumption_record$`Asset Name`,
+    #         `Fuel Type` = new_building_consumption_record$`Fuel Type`,
+    #         `LB Emission` =
+    #             round(
+    #                 (new_building_consumption_record$Consumption *
+    #                      default_grid_mix_ef_table$Average) / 1000,
+    #                 2),
+    #         `MB Emission` = 0,
+    #         `Start Date` = new_building_consumption_record$`Start Date`,
+    #         `End Date` = new_building_consumption_record$`End Date`,
+    #         `Creation Time` = Sys.time()
+    #     )
+    #     
+    #     # copy the consumption record table
+    #     table <- building_table_consumption_record()
+    #     
+    #     # remove and add some cols specific for emission record
+    #     table <- table |> 
+    #         select(-c(`Reporting Year`,
+    #                   `Consumption`, 
+    #                   `Unit`,
+    #                   `Renewable?`,
+    #                   `Renewable Energy Consumption (kWh)`,
+    #                   `Renewable Energy Type`,
+    #                   `Additional Comment`,
+    #                   `Creation Time`)) |> 
+    #         rename(`Consumption Record Hash ID` = `Hash ID`) |> 
+    #         mutate(`LB Emission` = "Placeholder",
+    #                `MB Emission` = "Placeholder",
+    #                `Creation Time` = Sys.time())
+    #     
+    #     # convert POSIXct and Date variable as numeric
+    #     table <- table |>
+    #         mutate(across(  # 对多列同时进行修改
+    #             # 选择所有日期时间列
+    #             .cols = where(~ inherits(., "POSIXct") | inherits(., "Date")),
+    #             .fns = as.numeric  # 把这些列转换成数字
+    #         ))
+    #     
+    #     # create a Hash ID for the record
+    #     table$`Hash ID` <- apply(table,
+    #                              1,
+    #                              digest,
+    #                              algo = "murmur32")
+    #     
+    #     # update the reactive value with new record
+    #     dbWriteTable(pool,
+    #                  "emission_record_building",
+    #                  new_record,
+    #                  append = TRUE)
+    #     
+    #     # refresh the table
+    #     load_emission_record_building()
+    #     
+    # })
+    
+    ### vehicle ####
     
     # render ------------------------------------------------------------------
     
