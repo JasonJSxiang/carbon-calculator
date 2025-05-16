@@ -637,27 +637,8 @@ server <- function(input, output, session) {
                             id = "emission_record_inputs",
                             
                             tabPanel(
-                                title = "Building",
+                                title = "Buidling",
                                 id = "building_emission_record_tab",
-                                
-                                
-                                selectInput(
-                                    "country_emission_record_building",
-                                    "Select a country",
-                                    choices = c("Select a country" = "")
-                                ),
-                                
-                                selectInput(
-                                    "city_emission_record_building",
-                                    "Select a city",
-                                    choices = c("Select a city" = "")
-                                ),
-                                
-                                selectInput(
-                                    "asset_emission_record_building",
-                                    "Select an asset",
-                                    choices = c("Select an asset" = "")
-                                ),
                                 
                                 selectInput(
                                     "HashID_emission_record_building",
@@ -671,7 +652,7 @@ server <- function(input, output, session) {
                                 actionButton(
                                     "add_emission_record_building",
                                     "Calculate"
-                                ),
+                                )
                                 
                             ),
                             
@@ -679,41 +660,21 @@ server <- function(input, output, session) {
                                 title = "Vehicle",
                                 id = "vehicle_emission_record_tab",
                                 
-                                
                                 selectInput(
-                                    "country_consumption_record_vehicle",
-                                    "Select a country",
-                                    choices = c("Select a country" = "")
+                                    "HashID_emission_record_vehicle",
+                                    "Select a Hash ID",
+                                    choices =
+                                        c("Select a Hash ID" = "")
                                 ),
-                                
-                                selectInput(
-                                    "city_emission_record_vehicle",
-                                    "Select a city",
-                                    choices = c("Select a city" = "")
-                                ),
-                                
-                                selectInput(
-                                    "asset_emission_record_vehicle",
-                                    "Select an asset",
-                                    choices = c("Select an asset" = "")
-                                ),
-                                
-                                selectInput(
-                                    "consumption_record_emission_record_vehicle",
-                                    "Select a consumption reocrd",
-                                    choices = 
-                                        c("Select a consumption record" = "")
-                                ),
-                                
-                                tableOutput("selected_emission_record_vehicle"),
                                 
                                 actionButton(
                                     "add_emission_record_vehicle",
                                     "Calculate"
-                                ),
-                                
+                                )
                             )
-                        )
+                        ),
+                        
+                        
                     ),
                     
                     column(
@@ -2078,7 +2039,7 @@ server <- function(input, output, session) {
         
     })
     
-    # 1.2 Default grid mix emission factor for China
+    # 1.2 Default grid mix emission factor for China (Testing)
     
     # get the grid mix record stored in the database
     grid_mix_record <- dbGetQuery(
@@ -2106,14 +2067,12 @@ server <- function(input, output, session) {
         # create a new Average col in the default grid mix ef table after Renewable
         default_grid_mix_ef_table <- default_grid_mix_ef_table |>
             mutate(
-                Average =
-                    (grid_mix_record$Coal *
-                         Coal + grid_mix_record$Oil *
-                         Oil + grid_mix_record$Gas *
-                         Gas + grid_mix_record$Nuclear *
-                         Nuclear + grid_mix_record$Renewables *
-                         Renewables)
-                / 100,
+                `Average` =
+                    (grid_mix_record$Coal * Coal 
+                     + grid_mix_record$Oil * Oil 
+                     + grid_mix_record$Gas * Gas 
+                     + grid_mix_record$Nuclear * Nuclear 
+                     + grid_mix_record$Renewables * Renewables) / 100 / 1000,
                 .after = Renewables
             )
     })
@@ -2129,108 +2088,32 @@ server <- function(input, output, session) {
     
     ## emission record ####
     
-    ### update inputs ####
-    
-    #### building ####
-    # observeEvent(building_table_consumption_record(), {
-    #     req(
-    #         nrow(building_table_consumption_record() > 0)
-    #     )
-    #     
-    #     # update the country first depends on what countries are there in the 
-    #     # consumption record table
-    #     updateSelectInput(
-    #         session,
-    #         "country_emission_record_building",
-    #         choices = 
-    #             c(
-    #                 "Select a country" = "",
-    #                 distinct(building_table_consumption_record(),
-    #                          Country) |> 
-    #                     pull(Country)
-    #             )
-    #     )
-    #     
-    # })
-    # 
-    # observeEvent(input$country_emission_record_building, {
-    #     req(
-    #         input$country_emission_record_building != 0
-    #     )
-    #     
-    #     # filter the table first for the selected country above
-    #     city_list <- building_table_consumption_record() |> 
-    #         filter(Country == input$country_emission_record_building) |> 
-    #         distinct(City) |> 
-    #         pull(City)
-    #     
-    #     # update the city selectinput
-    #     updateSelectInput(
-    #         session,
-    #         "city_emission_record_building",
-    #         choices =
-    #             c(
-    #                 "Select a city" = "",
-    #                 city_list
-    #             )
-    #     )
-    # })
-    # 
-    # observeEvent(input$city_emission_record_building, {
-    #     req(
-    #         input$city_emission_record_building != 0
-    #     )
-    #     
-    #     # filter the table for country and city
-    #     asset_list <- building_table_consumption_record() |> 
-    #         filter(
-    #             Country == input$country_emission_record_building,
-    #             City == input$city_emission_record_building,
-    #         ) |> 
-    #         distinct(`Asset Name`) |> 
-    #         pull(`Asset Name`)
-    #     
-    #     # update the asset selectinput
-    #     updateSelectInput(
-    #         session,
-    #         "asset_emission_record_building",
-    #         choices = 
-    #             c(
-    #                 "Select an asset" = "",
-    #                 asset_list
-    #             )
-    #     )
-    # })
-    # 
-    # observeEvent(input$asset_emission_record_building, {
-    #     req(
-    #         input$asset_emission_record_building != 0
-    #     )
-    #     
-    #     # filter the table for country, city, and asset
-    #     hashID_list <- building_table_consumption_record() |> 
-    #         filter(
-    #             Country == input$country_emission_record_building,
-    #             City == input$city_emission_record_building,
-    #             `Asset Name` == input$asset_emission_record_building
-    #         ) |> 
-    #         distinct(`Hash ID`) |> 
-    #         pull(`Hash ID`)
-    #     
-    #     # update the hash ID selectinput
-    #     updateSelectInput(
-    #         session,
-    #         "HashID_emission_record_building",
-    #         choices = 
-    #             c(
-    #                 "Select a Hash ID" = "",
-    #                 hashID_list
-    #             )
-    #     )
-    # })
     
     
     ### building table ####
+    
+    # update the select input field for the HashID
+    observeEvent(building_table_consumption_record(), {
+        req(
+            nrow(
+                building_table_consumption_record()
+            ) > 0 # make sure nrow is greater than 0
+        )
+        
+        
+        # get the list of Hash ID of building consumption records
+        hashID_list <- building_table_consumption_record() |>
+            pull(`Hash ID`)
+        
+        updateSelectInput(
+            session,
+            "HashID_emission_record_building",
+            choices = c(
+                "Select a Hash ID" = "",
+                hashID_list
+            )
+        )
+    })
     
     # initial table
     emission_record_building <- reactiveVal(NULL)
@@ -2257,67 +2140,44 @@ server <- function(input, output, session) {
     # initialise the database at the start
     observe({load_emission_record_building()})
     
-    # # procedure to auto-calculate the emission
-    # observeEvent(building_table_consumption_record(), {
-    #     # compile the new record
-    #     table <- tibble(
-    #         `Consumption Record Hash ID` =
-    #             new_building_consumption_record$`Hash ID`,
-    #         `Asset Name` = new_building_consumption_record$`Asset Name`,
-    #         `Fuel Type` = new_building_consumption_record$`Fuel Type`,
-    #         `LB Emission` =
-    #             round(
-    #                 (new_building_consumption_record$Consumption *
-    #                      default_grid_mix_ef_table$Average) / 1000,
-    #                 2),
-    #         `MB Emission` = 0,
-    #         `Start Date` = new_building_consumption_record$`Start Date`,
-    #         `End Date` = new_building_consumption_record$`End Date`,
-    #         `Creation Time` = Sys.time()
-    #     )
-    #     
-    #     # copy the consumption record table
-    #     table <- building_table_consumption_record()
-    #     
-    #     # remove and add some cols specific for emission record
-    #     table <- table |> 
-    #         select(-c(`Reporting Year`,
-    #                   `Consumption`, 
-    #                   `Unit`,
-    #                   `Renewable?`,
-    #                   `Renewable Energy Consumption (kWh)`,
-    #                   `Renewable Energy Type`,
-    #                   `Additional Comment`,
-    #                   `Creation Time`)) |> 
-    #         rename(`Consumption Record Hash ID` = `Hash ID`) |> 
-    #         mutate(`LB Emission` = "Placeholder",
-    #                `MB Emission` = "Placeholder",
-    #                `Creation Time` = Sys.time())
-    #     
-    #     # convert POSIXct and Date variable as numeric
-    #     table <- table |>
-    #         mutate(across(  # 对多列同时进行修改
-    #             # 选择所有日期时间列
-    #             .cols = where(~ inherits(., "POSIXct") | inherits(., "Date")),
-    #             .fns = as.numeric  # 把这些列转换成数字
-    #         ))
-    #     
-    #     # create a Hash ID for the record
-    #     table$`Hash ID` <- apply(table,
-    #                              1,
-    #                              digest,
-    #                              algo = "murmur32")
-    #     
-    #     # update the reactive value with new record
-    #     dbWriteTable(pool,
-    #                  "emission_record_building",
-    #                  new_record,
-    #                  append = TRUE)
-    #     
-    #     # refresh the table
-    #     load_emission_record_building()
-    #     
-    # })
+    # workflow to calculate emission for a consumption record
+    observeEvent(input$add_emission_record_building, {
+        req(nzchar(input$HashID_emission_record_building))
+        
+        new_record <- building_table_consumption_record() |> 
+            filter(`Hash ID` == input$HashID_emission_record_building)
+        
+        # Find the matching country and extract the average grid emission factor
+        # (under development)
+        
+        # extract the average grid mix emission factor of China
+        china_grid_mix_ef <- default_grid_mix_ef_table() |> 
+            pull(Average)
+        
+        # create a new col in new_record and calculate the final emission
+        LBEmission <- new_record$Consumption * china_grid_mix_ef
+        
+        # format the new_record to fit the emission record table
+        formatted_new_record <- new_record |> 
+            select(`Hash ID`, `Asset Name`, `Fuel Type`) |> 
+            mutate(`LB Emission` = LBEmission) |> 
+            rename(`Consumption Record Hash ID` = `Hash ID`)
+        
+        # update the reactive value with new record
+        dbWriteTable(pool,
+                     "emission_record_building",
+                     formatted_new_record, append = TRUE)
+        
+        # refresh the table
+        load_emission_record_building()
+        
+        showNotification("New building emission record added", 
+                         type = "message",
+                         closeButton = TRUE)
+        
+    })
+    
+    
     
     ### vehicle ####
     
