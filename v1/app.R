@@ -176,7 +176,7 @@ universal_grid_mix_ef <- tibble(
     Oil = 268,
     Gas = 183,
     Nuclear = 0,
-    Renewables = 0,
+    Renewables = 0
 )
 
 # 2. ui ####
@@ -245,7 +245,6 @@ server <- function(input, output, session) {
         load_consumption_record_building()
         load_consumption_record_vehicle()
         load_emission_record_building()
-        load_emission_record_vehicle()
         load_grid_mix_emission_factor()
     }    
     
@@ -438,6 +437,12 @@ server <- function(input, output, session) {
                                 id = "building_inputs_consumption_record",
                                 
                                 selectInput(
+                                    "building_country_consumption_record",
+                                    "Select a country",
+                                    choices = ""
+                                ),
+                                
+                                selectInput(
                                     "building_asset_consumption_record",
                                     "Select asset*",
                                     choices = ""),
@@ -480,6 +485,12 @@ server <- function(input, output, session) {
                             tabPanel(
                                 title = "Vehicle",
                                 id = "vehicle_inputs_consumption_record",
+                                
+                                selectInput(
+                                    "vehicle_country_consumption_record",
+                                    "Select a country",
+                                    choices = ""
+                                ),
                                 
                                 selectInput(
                                     "vehicle_asset_consumption_record",
@@ -534,7 +545,7 @@ server <- function(input, output, session) {
                             id = "consumption_record_table",
                             width = NULL,
                             
-                            #### building ####
+                            # building
                             tabPanel(
                                 title = "Building",
                                 id = "building_consumption_record_table",
@@ -656,6 +667,16 @@ server <- function(input, output, session) {
                                 id = "s1_2_emission_factor_table",
                                 DTOutput("s1_2_emission_factor_table")
                             )
+                        ),
+                        
+                        tabBox(
+                            width = NULL,
+                            
+                            tabPanel(
+                                title = "Universal Grid Mix EF (g/KWh)",
+                                id = "universal_grid_mix_ef",
+                                tableOutput("universal_grid_mix_ef")
+                            )
                         )
                     )
                     
@@ -722,7 +743,7 @@ server <- function(input, output, session) {
                             id = "emission_record_table",
                             width = NULL,
                             
-                            #### building ####
+                            # building
                             tabPanel(
                                 title = "Building",
                                 id = "building_emission_record_table",
@@ -732,7 +753,7 @@ server <- function(input, output, session) {
                                 )
                             ),
                             
-                            #### vehicle ####
+                            # vehicle
                             tabPanel(
                                 title = "Vehicle",
                                 id = "vehicle_emission_record_table",
@@ -1112,36 +1133,83 @@ server <- function(input, output, session) {
     
     ## consumption record sidebar ####
     
-    # update input fields
+    ### update input fields ####
     
-    # asset names
+    # country
     
     # building
     observe({
         
-        building_asset_list <- asset_table_building() |>
-            distinct(`Asset Name`) |>
+        building_country_list <- asset_table_building() |> 
+            distinct(Country) |> 
+            pull(Country)
+        
+        updateSelectInput(
+            session,
+            "building_country_consumption_record",
+            choices = c(
+                "Select a country" = "",
+                building_country_list
+            )
+        )
+    })
+    
+    # vehicle
+    observe({
+        
+        vehicle_country_list <- asset_table_vehicle() |> 
+            distinct(Country) |> 
+            pull(Country)
+        
+        updateSelectInput(
+            session,
+            "vehicle_country_consumption_record",
+            choices = c(
+                "Select a country" = "",
+                vehicle_country_list
+            )
+        )
+    })
+    
+    
+    # asset names
+    
+    # building
+    observeEvent(input$building_country_consumption_record, {
+        req(nzchar(input$building_country_consumption_record))
+        
+        # filtered asset list
+        filtered_list <- asset_table_building() |> 
+            filter(Country == input$building_country_consumption_record) |> 
+            distinct(`Asset Name`) |> 
             pull(`Asset Name`)
         
         updateSelectInput(session,
                           "building_asset_consumption_record",
                           choices = c("Select an asset" = "",
-                                      building_asset_list))
+                                      filtered_list))
     })
     
     
     # vehicle
-    observe({
+    observeEvent(input$vehicle_country_consumption_record, {
+        req(nzchar(input$vehicle_country_consumption_record))
         
-        vehicle_asset_list <- asset_table_vehicle() |>
-            distinct(`Asset Name`) |>
+        # filtered asset list
+        filtered_list <- asset_table_vehicle() |> 
+            filter(Country == input$vehicle_country_consumption_record) |> 
+            distinct(`Asset Name`) |> 
             pull(`Asset Name`)
         
         updateSelectInput(session,
                           "vehicle_asset_consumption_record",
-                          choices = c("Select an asset" = "",
-                                      vehicle_asset_list))
+                          choices = c(
+                              "Select an asset" = "",
+                              filtered_list
+                          )
+        )
     })
+    
     
     # start and end dates
     
@@ -1336,6 +1404,7 @@ server <- function(input, output, session) {
     observeEvent(input$add_building_consumption_record, {
         # create a new record with the submitted values
         new_record <- tibble(
+            "Country" = input$building_country_consumption_record,
             "Asset Name" = input$building_asset_consumption_record,
             "Reporting Year" = input$building_year_consumption_record,
             "Fuel Type" = input$fuel_select_building_consumption_record,
@@ -1544,6 +1613,7 @@ server <- function(input, output, session) {
     observeEvent(input$add_vehicle_consumption_record, {
         # create a new record with the submitted values
         new_record <- tibble(
+            "Country" = input$vehicle_country_consumption_record,
             "Asset Name" = input$vehicle_asset_consumption_record,
             "Reporting Year" = input$vehicle_year_consumption_record,
             "Fuel Type" = input$fuel_select_vehicle_consumption_record,
@@ -1682,13 +1752,12 @@ server <- function(input, output, session) {
     
     # create function that loads database
     load_grid_mix_emission_factor <- function() {
-        # first load the existing data
+        # first load the existing DB into data object
         data <- dbGetQuery(pool, "SELECT *
                            FROM ele_grid_mix_table")
         
-        # then pass the existing data to a reactive function in R
+        # then pass the data object to the reactive function defined above
         ele_grid_mix_table(data)
-        
     }
     
     
@@ -1698,7 +1767,7 @@ server <- function(input, output, session) {
         load_grid_mix_emission_factor()
     })
     
-    # add record workflow
+    # add new country-specific grid mix table record workflow
     observeEvent(input$add_record_grid_mix_emission_factor, {
         
         # check country input is selected
@@ -1737,9 +1806,7 @@ server <- function(input, output, session) {
             Nuclear = input$nuclear_mix_emission_factor,
             Renewables = input$renewables_mix_emission_factor,
             Remark = input$remark_emission_factor
-        )
-        
-        
+        ) 
         
         
         # convert POSIXct and Date variable as numeric
@@ -1816,11 +1883,9 @@ server <- function(input, output, session) {
     
     # emission record tab ####
     
-    
-    
     # building table
     
-    # update the select input field for Id
+    # update the select input field to match the list of consumption record Id
     observeEvent(building_table_consumption_record(), {
         req(
             nrow(
@@ -1868,20 +1933,52 @@ server <- function(input, output, session) {
     # initialise the database at the start
     observe({load_emission_record_building()})
     
-    # workflow to calculate emission for a consumption record
+    # workflow to calculate emission for the selected consumption record
     observeEvent(input$add_emission_record_building, {
         req(nzchar(input$id_emission_record_building))
         
+        # extract the row with the selected Id
         new_record <- building_table_consumption_record() |> 
             filter(Id == input$id_emission_record_building)
         
-        # Find the matching country and extract the average grid emission factor
-        # (under development)
+        # extract the country of that consumption record
+        new_record_country <- new_record |> 
+            pull(Country)
         
-        # create a new col in new_record and calculate the final emission
-        LBEmission <- new_record$Consumption * ele_grid_mix_table()$Average
+        # get a country list in the ele grid mix table
+        country_list <- ele_grid_mix_table() |> 
+            dplyr::distinct(Country) |> 
+            pull(Country)
         
-        # format the new_record to fit the emission record table
+        # check if the consumption record's country is in the country list
+        if(!(new_record_country %in% country_list)) {
+            
+            showNotification(
+                "No Grid Mix Info of the Selected Country",
+                type = "warning"
+            )
+            
+            return()
+        } else {}
+        
+        # get the grid mix of the selected country
+        selected_country_grid_mix <- ele_grid_mix_table() |> 
+            filter(Country == new_record_country)
+        
+        # calculate the grid mix average ef
+        average_ef <- (
+            selected_country_grid_mix$Coal * universal_grid_mix_ef$Coal
+            + selected_country_grid_mix$Oil * universal_grid_mix_ef$Oil
+            + selected_country_grid_mix$Gas * universal_grid_mix_ef$Gas
+            + selected_country_grid_mix$Nuclear * universal_grid_mix_ef$Nuclear
+            + selected_country_grid_mix$Renewables * universal_grid_mix_ef$Renewables
+            # convert from percentage to number and convert from gram to kilogram
+        ) / 100 / 1000 
+        
+        # calculate the LB emission of that consumption record
+        LBEmission <- new_record$Consumption * average_ef
+        
+        # format the new_record to fit the emission record table in the DB
         formatted_new_record <- new_record |> 
             select(Id, `Asset Name`, `Fuel Type`) |> 
             mutate(`LB Emission` = LBEmission) |> 
@@ -1958,6 +2055,11 @@ server <- function(input, output, session) {
                   selection = "single",
                   options = list(dom = "t")
         )
+    })
+    
+    # universal grid mix ef table
+    output$universal_grid_mix_ef <- renderTable({
+        universal_grid_mix_ef
     })
     
     # grid mix sum text output
