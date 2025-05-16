@@ -81,12 +81,28 @@ dbExecute(
           \"Additional Comment\" TEXT,
           \"Creation Time\" INTEGER)")
 
+# emission factor: grid mix
+dbExecute(
+    con, 
+    "CREATE TABLE IF NOT EXISTS ele_grid_mix_table  
+    (
+    Country TEXT,
+    City TEXT,
+    Coal REAL,
+    Oil REAL,
+    Gas REAL,
+    Nuclear REAL,
+    Renewables REAL,
+    Average REAL,
+    Remark TEXT)")
+
 # emission record: building
 dbExecute(
     con,
     "CREATE TABLE IF NOT EXISTS emission_record_building
     (
     Id INTEGER PRIMARY KEY,
+    \"Consumption Record Id\",
     \"Asset Name\" TEXT,
     \"Fuel Type\" TEXT,
     \"LB Emission\" REAL,
@@ -109,22 +125,6 @@ dbExecute(
     \"Start Date\" INTEGER,
     \"End Date\" INTEGER,
     \"Creation Time\" INTEGER)")
-
-
-
-# emission factor: grid mix
-dbExecute(
-    con, 
-    "CREATE TABLE IF NOT EXISTS grid_mix_emission_factor  
-    (
-    Country TEXT,
-    City TEXT,
-    \"Coal\" REAL,
-    \"Oil\" REAL,
-    \"Gas\" REAL,
-    \"Nuclear\" REAL,
-    \"Renewables\" REAL,
-    Remark TEXT)")
 
 dbDisconnect(con)
 
@@ -168,6 +168,15 @@ city_df <- world.cities |>
     mutate(name = str_replace(name, "^'", "")) |> # remove the leading ' in the col
     dplyr::distinct(name, .keep_all = TRUE) |>  # keep unique country
     dplyr::arrange(name)
+
+# (testing) a universal emission factor of each energy source
+universal_grid_mix_ef <- tibble(
+    Coal = 350,
+    Oil = 268,
+    Gas = 183,
+    Nuclear = 0,
+    Renewables = 0,
+)
 
 # static ui components --------------------------------------------------------------
 
@@ -460,8 +469,7 @@ server <- function(input, output, session) {
                                                 building_fuel_unit)),
                                 dateRangeInput(
                                     "building_date_range_consumption_record", 
-                                    "Date Range* (yyyy-mm-dd)",
-                                    start = NA, end = NA),
+                                    "Date Range* (yyyy-mm-dd)"),
                                 textInput(
                                     "building_comment_consumption_record",
                                     "Additional Comment",
@@ -511,9 +519,7 @@ server <- function(input, output, session) {
                                     choices = c("Select a unit" = "")),
                                 dateRangeInput(
                                     "vehicle_date_range_consumption_record", 
-                                    "Date Range* (yyyy-mm-dd)",
-                                    start = NA,
-                                    end = NA),
+                                    "Date Range* (yyyy-mm-dd)"),
                                 textInput(
                                     "vehicle_comment_consumption_record",
                                     "Additional Comment"),
@@ -611,17 +617,6 @@ server <- function(input, output, session) {
                                 title = "Scope 1 and 2",
                                 id = "s1_2_emission_factor_table",
                                 DTOutput("s1_2_emission_factor_table")
-                            )
-                        ),
-                        
-                        tabBox(
-                            width = NULL,
-                            title = "Grid mix default EF",
-                            
-                            tabPanel(
-                                title = "",
-                                id = "grid_mix_default_ef_table",
-                                DTOutput("default_grid_mix_ef_table")
                             )
                         )
                     )
@@ -775,7 +770,7 @@ server <- function(input, output, session) {
     # clear grid mix table
     observeEvent(input$clear_grid_mix_emission_factor, {
         dbExecute(
-            pool, "DELETE FROM grid_mix_emission_factor"
+            pool, "DELETE FROM ele_grid_mix_table"
         )
         dbExecute(pool, "VACUUM")  # 清理空间
         
@@ -1125,8 +1120,8 @@ server <- function(input, output, session) {
                              max = as.Date(
                                  paste0(input$building_year_consumption_record,
                                         "-12-31"),
-                                 start = NA,
-                                 end = NA)
+                                 start = Sys.Date(),
+                                 end = Sys.Date())
         )
         
     })
@@ -1143,7 +1138,9 @@ server <- function(input, output, session) {
                                             "-01-01")),
                              max = as.Date(
                                  paste0(input$vehicle_year_consumption_record,
-                                        "-12-31"))
+                                        "-12-31")),
+                             start = Sys.Date(),
+                             end = Sys.Date()
         )
         
     })
@@ -1468,8 +1465,8 @@ server <- function(input, output, session) {
         
         updateDateRangeInput(session,
                              "building_date_range_consumption_record",
-                             start = NA,
-                             end = NA)
+                             start = Sys.Date(),
+                             end = Sys.Date())
         
         updateTextInput(session,
                         "building_comment_consumption_record",
@@ -1629,8 +1626,8 @@ server <- function(input, output, session) {
         
         updateDateRangeInput(session,
                              "vehicle_date_range_consumption_record",
-                             start = NA,
-                             end = NA)
+                             start = Sys.Date(),
+                             end = Sys.Date())
         
         updateTextInput(session,
                         "vehicle_comment_consumption_record",
@@ -1811,7 +1808,7 @@ server <- function(input, output, session) {
     load_grid_mix_emission_factor <- function() {
         # first load the existing data
         data <- dbGetQuery(pool, "SELECT *
-                           FROM grid_mix_emission_factor")
+                           FROM ele_grid_mix_table")
         
         # then pass the existing data to a reactive function in R
         ele_grid_mix_table(data)
@@ -1908,7 +1905,20 @@ server <- function(input, output, session) {
                     Gas = input$gas_mix_emission_factor,
                     Nuclear = input$nuclear_mix_emission_factor,
                     Renewables = input$renewables_mix_emission_factor
-                )
+                ) |> 
+                    mutate(
+                        Average = 
+                            (
+                                Coal * universal_grid_mix_ef$Coal
+                                + Oil * universal_grid_mix_ef$Oil
+                                + Gas * universal_grid_mix_ef$Gas
+                                + Nuclear * universal_grid_mix_ef$Nuclear
+                                + Renewables * universal_grid_mix_ef$Renewables
+                            ) 
+                        / 100 # convert from percentage to number
+                        / 1000, # convert from g to kg
+                        .after = Renewables
+                    )
                 
             }
         
@@ -1922,7 +1932,7 @@ server <- function(input, output, session) {
             ))
         
         # update the data with the new table
-        dbWriteTable(pool, "grid_mix_emission_factor", new_table, append = TRUE)
+        dbWriteTable(pool, "ele_grid_mix_table", new_table, append = TRUE)
         
         # refresh the table
         load_grid_mix_emission_factor()
@@ -1978,47 +1988,6 @@ server <- function(input, output, session) {
         
         
     })
-    
-    # 1.2 Default grid mix emission factor for China (Testing)
-    
-    # get the grid mix record stored in the database
-    grid_mix_record <- dbGetQuery(
-        pool,
-        "SELECT *
-        FROM grid_mix_emission_factor"
-    )
-    
-    default_grid_mix_ef_table <- reactive({
-        req(nrow(grid_mix_record) > 0)
-        
-        default_grid_mix_ef_table <- tibble(
-            Country = "China",
-            City = NA,
-            Coal = 348.84,
-            Oil = 263.88,
-            Gas = round(56.1*1000000/277778, 2),
-            Nuclear = 12,
-            Renewables = 0,
-            Remark = "https://data.ncsc.org.cn/factoryes/indexMod/indexModIlibrary?
-        templateName=%E8%A1%8C%E4%B8%9A%E4%BC%81%E4%B8%9A%E6%8E%92%E6%94%BE%E5%
-        9B%A0%E5%AD%90"
-        )
-        
-        # create a new Average col in the default grid mix ef table after Renewable
-        default_grid_mix_ef_table <- default_grid_mix_ef_table |>
-            mutate(
-                `Average` =
-                    (grid_mix_record$Coal * Coal 
-                     + grid_mix_record$Oil * Oil 
-                     + grid_mix_record$Gas * Gas 
-                     + grid_mix_record$Nuclear * Nuclear 
-                     + grid_mix_record$Renewables * Renewables) / 100 / 1000,
-                .after = Renewables
-            )
-    })
-    
-    
-    
     
     
     # 2. FERA values for scope 1 and 2 all fuels
@@ -2090,18 +2059,14 @@ server <- function(input, output, session) {
         # Find the matching country and extract the average grid emission factor
         # (under development)
         
-        # extract the average grid mix emission factor of China
-        china_grid_mix_ef <- default_grid_mix_ef_table() |> 
-            pull(Average)
-        
         # create a new col in new_record and calculate the final emission
-        LBEmission <- new_record$Consumption * china_grid_mix_ef
+        LBEmission <- new_record$Consumption * ele_grid_mix_table()$Average
         
         # format the new_record to fit the emission record table
         formatted_new_record <- new_record |> 
             select(Id, `Asset Name`, `Fuel Type`) |> 
             mutate(`LB Emission` = LBEmission) |> 
-            rename(`Consumption Record Id` = Id)
+            rename("Consumption Record Id" = "Id")
         
         # update the reactive value with new record
         dbWriteTable(pool,
@@ -2121,65 +2086,6 @@ server <- function(input, output, session) {
     
     ### vehicle ####
     
-    # initialise table for emission record
-    emission_record_vehicle <- reactiveVal(NULL)
-    
-    
-    # create function to cache database
-    load_emission_record_vehicle <- function() {
-        
-        # extract the table from the database
-        data <- dbGetQuery(
-            pool,
-            "SELECT *
-            FROM emission_record_vehicle"
-        )
-        
-        # load the table into the empty reactive value
-        emission_record_vehicle(data)
-    }
-    
-    
-    # initialise the database
-    observe({load_emission_record_vehicle()})
-    
-    
-    # workflow to calculate emission for a consumption record
-    observeEvent(input$add_emission_record_vehicle, {
-        req(nzchar(input$id_emission_record_vehicle))
-        
-        new_record <- vehicle_table_consumption_record() |> 
-            filter(Id == input$id_emission_record_vehicle)
-        
-        # Find the matching country and extract the average grid emission factor
-        # (under development)
-        
-        # extract the average grid mix emission factor of China
-        china_grid_mix_ef <- default_grid_mix_ef_table() |> 
-            pull(Average)
-        
-        # create a new col in new_record and calculate the final emission
-        LBEmission <- new_record$Consumption * china_grid_mix_ef
-        
-        # format the new_record to fit the emission record table
-        formatted_new_record <- new_record |> 
-            select(Id, `Asset Name`, `Fuel Type`) |> 
-            mutate(`LB Emission` = LBEmission) |> 
-            rename(`Consumption Record Id` = Id)
-        
-        # update the reactive value with new record
-        dbWriteTable(pool,
-                     "emission_record_vehicle",
-                     formatted_new_record, append = TRUE)
-        
-        # refresh the table
-        load_emission_record_building()
-        
-        showNotification("New vehicle emission record added", 
-                         type = "message",
-                         closeButton = TRUE)
-        
-    })
     
     
     # render ------------------------------------------------------------------
@@ -2191,18 +2097,14 @@ server <- function(input, output, session) {
     # building table
     output$asset_table_building <- renderDT({
         datatable(
-            asset_table_building() |> 
-                select(-c(`Creation Time`)
-                ),
+            asset_table_building(),
             selection = "single")
     })
     
     # vehicle table
     output$asset_table_vehicle <- renderDT({
         datatable(
-            asset_table_vehicle() |> 
-                select(-c(`Creation Time`)
-                ), 
+            asset_table_vehicle(), 
             selection = "single")
     })
     
@@ -2211,45 +2113,16 @@ server <- function(input, output, session) {
     
     # building table
     output$building_table_consumption_record <- renderDT({
-        datatable(building_table_consumption_record() |> 
-                      select(-c(`Creation Time`)),
+        datatable(building_table_consumption_record(),
                   selection = "single")
     })
     
     # vehicle table 
     output$vehicle_table_consumption_record <- renderDT({
         datatable(
-            vehicle_table_consumption_record() |> 
-                select(
-                    -c(`Creation Time`)
-                ),
+            vehicle_table_consumption_record(),
             selection = "single")
     })
-    
-    ## emission record ####
-    
-    # building
-    output$emission_record_building <- renderDT({
-        datatable(
-            emission_record_building() |> 
-                select(
-                    -c(`Creation Time`)
-                ),
-            selection = "single"
-        )
-    })
-    
-    # vehicle
-    output$emission_record_vehicle <- renderDT({
-        datatable(
-            emission_record_vehicle() |> 
-                select(
-                    -c(`Creation Time`)
-                ),
-            selection = "single"
-        )
-    })
-    
     
     ## emission factor ####
     
@@ -2299,6 +2172,24 @@ server <- function(input, output, session) {
         datatable(city_df,
                   selection = "single",
                   options = list(dom = 't'))
+    })
+    
+    ## emission record ####
+    
+    # building
+    output$emission_record_building <- renderDT({
+        datatable(
+            emission_record_building(),
+            selection = "single"
+        )
+    })
+    
+    # vehicle
+    output$emission_record_vehicle <- renderDT({
+        datatable(
+            emission_record_vehicle(),
+            selection = "single"
+        )
     })
     
     
