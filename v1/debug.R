@@ -7,7 +7,6 @@ library(DT)
 library(maps)
 library(shinydashboard)
 library(plotly)
-library(digest)
 
 
 # Initialise database ------------------------------------------------------------
@@ -17,7 +16,9 @@ con <- dbConnect(SQLite(), "database/database.sqlite")
 dbExecute(
     con,
     "CREATE TABLE IF NOT EXISTS asset_building
-          (Country TEXT,
+          (
+          Id INTEGER PRIMARY KEY,
+          Country TEXT,
           City TEXT,
           \"Asset Type\" TEXT,
           \"Asset Name\" TEXT,
@@ -31,7 +32,9 @@ dbExecute(
 dbExecute(
     con,
     "CREATE TABLE IF NOT EXISTS asset_vehicle
-          (Country TEXT,
+          (
+          Id INTEGER PRIMARY KEY,
+          Country TEXT,
           City TEXT,
           \"Asset Type\" TEXT,
           \"Asset Name\" TEXT,
@@ -42,7 +45,8 @@ dbExecute(
 dbExecute(
     con,
     "CREATE TABLE IF NOT EXISTS consumption_record_building
-          (\"Hash ID\" TEXT,
+          (
+          Id INTEGER PRIMARY KEY,
           Country TEXT,
           City TEXT,
           \"Asset Name\" TEXT,
@@ -62,7 +66,8 @@ dbExecute(
 dbExecute(
     con,
     "CREATE TABLE IF NOT EXISTS consumption_record_vehicle
-          (\"Hash ID\" TEXT,
+          (
+          Id INTEGER PRIMARY KEY,
           Country TEXT,
           City TEXT,
           \"Asset Name\" TEXT,
@@ -80,8 +85,8 @@ dbExecute(
 dbExecute(
     con,
     "CREATE TABLE IF NOT EXISTS emission_record_building
-    (\"Hash ID\" TEXT,
-    \"Consumption Record Hash ID\" TEXT,
+    (
+    Id INTEGER PRIMARY KEY,
     \"Asset Name\" TEXT,
     \"Fuel Type\" TEXT,
     \"LB Emission\" REAL,
@@ -94,8 +99,8 @@ dbExecute(
 dbExecute(
     con,
     "CREATE TABLE IF NOT EXISTS emission_record_vehicle
-    (\"Hash ID\" TEXT,
-    \"Consumption Record Hash ID\",
+    (
+    Id INTEGER PRIMARY KEY,
     \"Asset Name\" TEXT,
     \"Fuel Type\" TEXT,
     \"Data Type\" TEXT,
@@ -111,7 +116,8 @@ dbExecute(
 dbExecute(
     con, 
     "CREATE TABLE IF NOT EXISTS grid_mix_emission_factor  
-    (Country TEXT,
+    (
+    Country TEXT,
     City TEXT,
     \"Coal\" REAL,
     \"Oil\" REAL,
@@ -641,13 +647,11 @@ server <- function(input, output, session) {
                                 id = "building_emission_record_tab",
                                 
                                 selectInput(
-                                    "HashID_emission_record_building",
-                                    "Select a Hash ID",
+                                    "id_emission_record_building",
+                                    "Select an Id",
                                     choices = 
-                                        c("Select a Hash ID" = "")
+                                        c("Select an Id" = "")
                                 ),
-                                
-                                tableOutput("selected_emission_record_building"),
                                 
                                 actionButton(
                                     "add_emission_record_building",
@@ -661,10 +665,10 @@ server <- function(input, output, session) {
                                 id = "vehicle_emission_record_tab",
                                 
                                 selectInput(
-                                    "HashID_emission_record_vehicle",
-                                    "Select a Hash ID",
+                                    "id_session_record_vehicle",
+                                    "Select an Id",
                                     choices =
-                                        c("Select a Hash ID" = "")
+                                        c("Select an Id" = "")
                                 ),
                                 
                                 actionButton(
@@ -1425,12 +1429,6 @@ server <- function(input, output, session) {
                 .fns = as.numeric  # 把这些列转换成数字
             ))
         
-        # create a Hash ID for the record
-        new_record$`Hash ID` <- apply(new_record, 
-                                      1,
-                                      digest, 
-                                      algo = "murmur32")
-        
         # update the reactive value with new record
         dbWriteTable(pool,
                      "consumption_record_building",
@@ -1483,7 +1481,7 @@ server <- function(input, output, session) {
     
     # initial table for vehicle consumption record
     vehicle_table_consumption_record <- reactiveVal(NULL)
-    emission_record_vehicle <- reactiveVal(NULL)
+    
     
     # create function to cache database 
     load_consumption_record_vehicle <- function() {
@@ -1502,22 +1500,10 @@ server <- function(input, output, session) {
         vehicle_table_consumption_record(data)
     }
     
-    load_emission_record_vehicle <- function() {
-        
-        # extract the table from the database
-        data <- dbGetQuery(
-            pool,
-            "SELECT *
-            FROM emission_record_vehicle"
-        )
-        
-        # load the table into the empty reactive value
-        emission_record_vehicle(data)
-    }
+    
     
     # initialise the database
     observe({load_consumption_record_vehicle()})
-    observe({load_emission_record_vehicle()})
     
     # Add new record: Vehicle
     observeEvent(input$add_vehicle_consumption_record, {
@@ -1614,15 +1600,6 @@ server <- function(input, output, session) {
                 .fns = as.numeric  # 把这些列转换成数字
             ))
         
-        # create a Hash ID for the record
-        new_record$`Hash ID` <- apply(new_record, 
-                                      1,
-                                      digest, 
-                                      algo = "murmur32")
-        
-        # save the Hash ID in the global envi.
-        new_vehicle_consumption_record <- new_record
-        
         # update the reactive value with new record
         dbWriteTable(pool,
                      "consumption_record_vehicle",
@@ -1658,43 +1635,6 @@ server <- function(input, output, session) {
         updateTextInput(session,
                         "vehicle_comment_consumption_record",
                         value = "")
-        
-        # for emission record below
-        new_record <- tibble(
-            `Consumption Record Hash ID` =
-                new_vehicle_consumption_record$`Hash ID`,
-            `Asset Name` = new_vehicle_consumption_record$`Asset Name`,
-            `Fuel Type` = new_vehicle_consumption_record$`Fuel Type`,
-            `LB Emission` = 0,
-            `MB Emission` = 0,
-            `Start Date` = new_vehicle_consumption_record$`Start Date`,
-            `End Date` = new_vehicle_consumption_record$`End Date`,
-            `Creation Time` = Sys.time()
-        )
-        
-        # convert POSIXct and Date variable as numeric
-        new_record <- new_record |>
-            mutate(across(  # 对多列同时进行修改
-                # 选择所有日期时间列
-                .cols = where(~ inherits(., "POSIXct") | inherits(., "Date")), 
-                .fns = as.numeric  # 把这些列转换成数字
-            ))
-        
-        # create a Hash ID for the record
-        new_record$`Hash ID` <- apply(new_record, 
-                                      1,
-                                      digest, 
-                                      algo = "murmur32")
-        
-        # update the reactive value with new record
-        dbWriteTable(pool,
-                     "emission_record_vehicle",
-                     new_record,
-                     append = TRUE)
-        
-        # refresh the table
-        load_emission_record_vehicle()
-        
         
     })
     
@@ -2092,7 +2032,7 @@ server <- function(input, output, session) {
     
     ### building table ####
     
-    # update the select input field for the HashID
+    # update the select input field for Id
     observeEvent(building_table_consumption_record(), {
         req(
             nrow(
@@ -2101,16 +2041,16 @@ server <- function(input, output, session) {
         )
         
         
-        # get the list of Hash ID of building consumption records
-        hashID_list <- building_table_consumption_record() |>
-            pull(`Hash ID`)
+        # get the Id list of building consumption records
+        id_list <- building_table_consumption_record() |>
+            pull(Id)
         
         updateSelectInput(
             session,
-            "HashID_emission_record_building",
+            "id_emission_record_building",
             choices = c(
-                "Select a Hash ID" = "",
-                hashID_list
+                "Select an Id" = "",
+                id_list
             )
         )
     })
@@ -2142,10 +2082,10 @@ server <- function(input, output, session) {
     
     # workflow to calculate emission for a consumption record
     observeEvent(input$add_emission_record_building, {
-        req(nzchar(input$HashID_emission_record_building))
+        req(nzchar(input$id_emission_record_building))
         
         new_record <- building_table_consumption_record() |> 
-            filter(`Hash ID` == input$HashID_emission_record_building)
+            filter(Id == input$id_emission_record_building)
         
         # Find the matching country and extract the average grid emission factor
         # (under development)
@@ -2159,9 +2099,9 @@ server <- function(input, output, session) {
         
         # format the new_record to fit the emission record table
         formatted_new_record <- new_record |> 
-            select(`Hash ID`, `Asset Name`, `Fuel Type`) |> 
+            select(Id, `Asset Name`, `Fuel Type`) |> 
             mutate(`LB Emission` = LBEmission) |> 
-            rename(`Consumption Record Hash ID` = `Hash ID`)
+            rename(`Consumption Record Id` = Id)
         
         # update the reactive value with new record
         dbWriteTable(pool,
@@ -2180,6 +2120,67 @@ server <- function(input, output, session) {
     
     
     ### vehicle ####
+    
+    # initialise table for emission record
+    emission_record_vehicle <- reactiveVal(NULL)
+    
+    
+    # create function to cache database
+    load_emission_record_vehicle <- function() {
+        
+        # extract the table from the database
+        data <- dbGetQuery(
+            pool,
+            "SELECT *
+            FROM emission_record_vehicle"
+        )
+        
+        # load the table into the empty reactive value
+        emission_record_vehicle(data)
+    }
+    
+    
+    # initialise the database
+    observe({load_emission_record_vehicle()})
+    
+    
+    # workflow to calculate emission for a consumption record
+    observeEvent(input$add_emission_record_vehicle, {
+        req(nzchar(input$id_emission_record_vehicle))
+        
+        new_record <- vehicle_table_consumption_record() |> 
+            filter(Id == input$id_emission_record_vehicle)
+        
+        # Find the matching country and extract the average grid emission factor
+        # (under development)
+        
+        # extract the average grid mix emission factor of China
+        china_grid_mix_ef <- default_grid_mix_ef_table() |> 
+            pull(Average)
+        
+        # create a new col in new_record and calculate the final emission
+        LBEmission <- new_record$Consumption * china_grid_mix_ef
+        
+        # format the new_record to fit the emission record table
+        formatted_new_record <- new_record |> 
+            select(Id, `Asset Name`, `Fuel Type`) |> 
+            mutate(`LB Emission` = LBEmission) |> 
+            rename(`Consumption Record Id` = Id)
+        
+        # update the reactive value with new record
+        dbWriteTable(pool,
+                     "emission_record_vehicle",
+                     formatted_new_record, append = TRUE)
+        
+        # refresh the table
+        load_emission_record_building()
+        
+        showNotification("New vehicle emission record added", 
+                         type = "message",
+                         closeButton = TRUE)
+        
+    })
+    
     
     # render ------------------------------------------------------------------
     
@@ -2232,7 +2233,7 @@ server <- function(input, output, session) {
         datatable(
             emission_record_building() |> 
                 select(
-                    -c(`Hash ID`, `Creation Time`)
+                    -c(`Creation Time`)
                 ),
             selection = "single"
         )
