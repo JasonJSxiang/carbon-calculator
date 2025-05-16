@@ -8,8 +8,9 @@ library(maps)
 library(shinydashboard)
 library(plotly)
 
+# 1. One-off settings ####
 
-# Initialise database ------------------------------------------------------------
+## Initialise database ####
 con <- dbConnect(SQLite(), "database/database.sqlite")
 
 # building asset
@@ -128,7 +129,7 @@ dbExecute(
 
 dbDisconnect(con)
 
-# Global -------------------------------------------------------
+## Globals static ####
 #(code only run once when the app starts)
 
 # fuel list for building
@@ -178,60 +179,52 @@ universal_grid_mix_ef <- tibble(
     Renewables = 0,
 )
 
-# static ui components --------------------------------------------------------------
-
-## dashboard header ####
-db_header <- dashboardHeader(
-    
-    title = "Carbon Calculator 张译翔",
-    titleWidth = 300
-    
-)
-
-## dashboard sidebar ####
-db_sidebar <- dashboardSidebar(
-    sidebarMenu(
-        menuItem("Home",
-                 tabName = "home_tab",
-                 icon = icon("home"),
-                 selected = TRUE),
-        menuItem("Asset", 
-                 tabName = "asset_tab", 
-                 icon = icon("building")),
-        menuItem("Consumption Record",
-                 tabName = "consumption_record_tab",
-                 icon = icon("table-list")),
-        menuItem("Emission Factor",
-                 tabName = "emission_factor_tab",
-                 icon = icon("clipboard")),
-        menuItem(
-            "Emission Record",
-            tabName = "emission_record_tab",
-            icon = icon("clipboard-user")
-        ),
-        menuItem("Inventories",
-                 tabName = "carbon_inventory_tab",
-                 icon = icon("dashboard"))
-    )
-)
-
-
-
-
-# ui ----------------------------------------------------------------------
-
+# 2. ui ####
 ui <- dashboardPage(
     
-    db_header,
-    db_sidebar,
-    dashboardBody(uiOutput("db_body"))
+    # static dashboard header
+    dashboardHeader(
+        title = "Carbon Calculator 张译翔",
+        titleWidth = 300
+    ),
     
+    # static dashboard sidebar
+    dashboardSidebar(
+        sidebarMenu(
+            menuItem("Home",
+                     tabName = "home_tab",
+                     icon = icon("home"),
+                     selected = TRUE),
+            menuItem("Asset", 
+                     tabName = "asset_tab", 
+                     icon = icon("building")),
+            menuItem("Consumption Record",
+                     tabName = "consumption_record_tab",
+                     icon = icon("table-list")),
+            menuItem("Emission Factor",
+                     tabName = "emission_factor_tab",
+                     icon = icon("clipboard")),
+            menuItem(
+                "Emission Record",
+                tabName = "emission_record_tab",
+                icon = icon("clipboard-user")
+            ),
+            menuItem("Inventories",
+                     tabName = "carbon_inventory_tab",
+                     icon = icon("dashboard"))
+        )
+    ),
+    
+    # dynamic dashboard body
+    dashboardBody(uiOutput("db_body"))
 )
 
+
+# 3. Server ####
 server <- function(input, output, session) {
     
     
-    # Establish connection with database --------------------------------------
+    ## DB connection setting ####
     pool <- dbPool(
         SQLite(),
         dbname = "database/database.sqlite"
@@ -243,7 +236,7 @@ server <- function(input, output, session) {
     })
     
     
-    # Dynamic objects ---------------------------------------------------------
+    ## Globals (dynamic) ####
     
     # function to load all the tables
     load_all <- function() {
@@ -258,12 +251,12 @@ server <- function(input, output, session) {
     
     
     
-    # dashboard body (dynamic) ----------------------------------------------------
+    ## Dashboard body ####
     
     # run the dynamic ui once when the app starts
     output$db_body <- renderUI(
         tabItems(
-            ## home tab ####
+            ### home tab ####
             tabItem(
                 tabName = "home_tab",
                 h2("Carbon Calculator 张译翔"),
@@ -298,12 +291,12 @@ server <- function(input, output, session) {
                 
             ),
             
-            ## asset tab ####
+            ### asset tab ####
             tabItem(
                 tabName = "asset_tab",
                 
                 fluidRow(
-                    ### inputs tab box ####
+                    # inputs tab box
                     column(
                         width = 3,
                         
@@ -312,7 +305,7 @@ server <- function(input, output, session) {
                             id = "asset_inputs_box",
                             width = NULL,
                             
-                            #### building ####
+                            # building
                             tabPanel(
                                 id = "building_inputs_asset", 
                                 title = "Building",
@@ -358,7 +351,7 @@ server <- function(input, output, session) {
                                     "Add Record")        
                             ),
                             
-                            #### vehicle ####
+                            # vehicle
                             tabPanel(
                                 id = "vehicle_inputs_asset",
                                 title = "Vehicle",
@@ -386,7 +379,7 @@ server <- function(input, output, session) {
                         )
                     ),
                     
-                    ### table tab box ####
+                    # table tab box
                     column(
                         width = 9,
                         
@@ -395,7 +388,7 @@ server <- function(input, output, session) {
                             id = "asset_table_asset",
                             width = NULL,
                             
-                            #### building ####
+                            # building 
                             tabPanel(
                                 
                                 id = "building_table_asset",
@@ -407,7 +400,7 @@ server <- function(input, output, session) {
                                 
                             ),
                             
-                            #### vehicle ####
+                            # vehicle
                             tabPanel(
                                 
                                 id = "vehicle_table_asset",
@@ -424,13 +417,13 @@ server <- function(input, output, session) {
                 )
             ),
             
-            ## consumption record tab ####
+            ### consumption record tab ####
             tabItem(
                 tabName = "consumption_record_tab",
                 
                 fluidRow(
                     
-                    ### inputs tab box ####
+                    # inputs tab box
                     column(
                         width = 3,
                         
@@ -439,7 +432,7 @@ server <- function(input, output, session) {
                             id = "consumption_record_inputs",
                             width = NULL,
                             
-                            #### building ####
+                            # building 
                             tabPanel(
                                 title = "Building",
                                 id = "building_inputs_consumption_record",
@@ -483,7 +476,7 @@ server <- function(input, output, session) {
                                     "Add record")
                             ),
                             
-                            #### vehicle ####
+                            # vehicle 
                             tabPanel(
                                 title = "Vehicle",
                                 id = "vehicle_inputs_consumption_record",
@@ -531,7 +524,7 @@ server <- function(input, output, session) {
                         )
                     ),
                     
-                    ### table tab box ####
+                    # table tab box
                     
                     column(
                         width = 9,
@@ -551,7 +544,7 @@ server <- function(input, output, session) {
                                 )
                             ),
                             
-                            #### vehicle ####
+                            # vehicle
                             tabPanel(
                                 title = "Vehicle",
                                 id = "vehicle_consumption_record_table",
@@ -567,7 +560,7 @@ server <- function(input, output, session) {
                 )
             ),
             
-            ## emission factor tab ####
+            ### emission factor tab ####
             tabItem(
                 tabName = "emission_factor_tab",
                 
@@ -582,15 +575,60 @@ server <- function(input, output, session) {
                                 title = "Grid Mix",
                                 id = "grid_mix_input_emission_factor",
                                 
-                                radioButtons(
-                                    "grid_mix_ui_selection_button",
-                                    "Select a submission type",
-                                    choices = c("Country-level",
-                                                "City-level"),
-                                    selected = NA
+                                selectInput(
+                                    "country_emission_factor",
+                                    "Select a country*",
+                                    choices = c("Select a country" = "",
+                                                country_list)
                                 ),
                                 
-                                uiOutput("grid_mix_ui")
+                                numericInput(
+                                    "coal_mix_emission_factor",
+                                    "Share of coal generation (%)",
+                                    value = NA,
+                                    min = 0
+                                ),
+                                
+                                numericInput(
+                                    "oil_mix_emission_factor",
+                                    "Share of oil generation (%)",
+                                    value = NA,
+                                    min = 0
+                                ),
+                                
+                                numericInput(
+                                    "gas_mix_emission_factor",
+                                    "Share of gas generation (%)",
+                                    value = NA,
+                                    min = 0
+                                ),
+                                
+                                numericInput(
+                                    "nuclear_mix_emission_factor",
+                                    "Share of nuclear generation (%)",
+                                    value = NA,
+                                    min = 0
+                                ),
+                                
+                                numericInput(
+                                    "renewables_mix_emission_factor",
+                                    "Share of renewables generation (%)",
+                                    value = NA,
+                                    min = 0
+                                ),
+                                
+                                textInput(
+                                    "remark_emission_factor",
+                                    "Remark",
+                                    value = NA
+                                ),
+                                
+                                actionButton(
+                                    "add_record_grid_mix_emission_factor",
+                                    "Add record"
+                                ),
+                                
+                                textOutput("grid_mix_sum_left")
                                 
                             )
                         )
@@ -624,7 +662,7 @@ server <- function(input, output, session) {
                 )
             ),
             
-            ## emission record tab ####
+            ### emission record tab ####
             tabItem(
                 tabName = "emission_record_tab",
                 
@@ -709,7 +747,7 @@ server <- function(input, output, session) {
                 
             ),
             
-            ## carbon inventory tab ####
+            ### carbon inventory tab ####
             tabItem(
                 tabName = "carbon_inventory_tab",
                 
@@ -725,9 +763,9 @@ server <- function(input, output, session) {
     
     
     
-    # dashboard page content ----------------------------------------------------
+    # dashboard page content ####
     
-    ## home tab server ####
+    ## home tab ####
     
     # clear asset table
     observeEvent(input$clear_asset, {
@@ -801,9 +839,7 @@ server <- function(input, output, session) {
                          type = "message")
     })
     
-    ## asset table ####
-    
-    ### update selectinput ####
+    ## asset tab ####
     
     # building asset
     observeEvent(input$country_asset_building, {
@@ -845,9 +881,9 @@ server <- function(input, output, session) {
         )
     })
     
-    ### add new record ####
+    # add new record 
     
-    #### building ####
+    # building 
     
     # initialise an empty table
     asset_table_building <- reactiveVal(NULL)
@@ -968,7 +1004,7 @@ server <- function(input, output, session) {
         
     })
     
-    #### vehicle ####
+    # vehicle 
     
     # empty table
     asset_table_vehicle <- reactiveVal(NULL)
@@ -1072,11 +1108,13 @@ server <- function(input, output, session) {
         
     })
     
+    # consumption record tab ####
+    
     ## consumption record sidebar ####
     
-    ### update input fields ####
+    # update input fields
     
-    #### asset names ####
+    # asset names
     
     # building
     observe({
@@ -1105,7 +1143,7 @@ server <- function(input, output, session) {
                                       vehicle_asset_list))
     })
     
-    #### start and end dates ####
+    # start and end dates
     
     # building
     observeEvent(input$building_year_consumption_record, {
@@ -1146,7 +1184,7 @@ server <- function(input, output, session) {
     })
     
     
-    #### emission source ####
+    # emission source
     
     # building
     observeEvent(input$building_asset_consumption_record, {
@@ -1206,7 +1244,7 @@ server <- function(input, output, session) {
     })
     
     
-    #### vehicle submission data type ####
+    # vehicle submission data type
     observeEvent(input$fuel_or_mileage_consumption_record, {
         
         if(input$fuel_or_mileage_consumption_record == "Fuel") {
@@ -1233,7 +1271,7 @@ server <- function(input, output, session) {
     })
     
     
-    #### renewable energy ui ####
+    ## renewable energy ui ####
     
     # pop up RE yes no question when electricity is selected as the fuel type
     output$renewable_energy_ui <- renderUI({
@@ -1265,9 +1303,9 @@ server <- function(input, output, session) {
         
     })
     
-    ## consumption record ####
+    ## consumption record table ####
     
-    ### building ####
+    # building
     
     # initial tables
     building_table_consumption_record <- reactiveVal(NULL)
@@ -1474,7 +1512,7 @@ server <- function(input, output, session) {
     })
     
     
-    ### vehicle ####
+    # vehicle
     
     # initial table for vehicle consumption record
     vehicle_table_consumption_record <- reactiveVal(NULL)
@@ -1635,171 +1673,9 @@ server <- function(input, output, session) {
         
     })
     
-    ## emission factor table ####
-    
-    ## update ui ####
-    
-    # update city selectInput choices in the ui
-    observe({
-        req(
-            input$grid_mix_ui_selection_button == "City-level" |
-                nzchar(input$country_emission_factor)
-        )
-        
-        # get the unique city names from of the chosen country
-        temp_city_list <- city_df |> 
-            filter(country == input$country_emission_factor) |> 
-            distinct(name)
-        
-        updateSelectInput(session,
-                          "city_emission_factor",
-                          choices = c("Select a city" = "",
-                                      temp_city_list),
-                          selected = ""
-        )
-    })
-    
-    # emission factors are grouped by country, city, and emission source
+    # emission factor tab ####
     
     # 1. Electricity grid mix
-    
-    # render different ui depending on whether the user is submitting the 
-    # grid mix at country level or city level
-    
-    output$grid_mix_ui <- renderUI({
-        req(
-            input$grid_mix_ui_selection_button
-        ) # only initiate when the button is clicked
-        
-        if(input$grid_mix_ui_selection_button == "Country-level") {
-            
-            tagList(
-                
-                selectInput(
-                    "country_emission_factor",
-                    "Select a country*",
-                    choices = c("Select a country" = "",
-                                country_list)
-                ),
-                
-                numericInput(
-                    "coal_mix_emission_factor",
-                    "Share of coal generation (%)",
-                    value = NA,
-                    min = 0
-                ),
-                
-                numericInput(
-                    "oil_mix_emission_factor",
-                    "Share of oil generation (%)",
-                    value = NA,
-                    min = 0
-                ),
-                
-                numericInput(
-                    "gas_mix_emission_factor",
-                    "Share of gas generation (%)",
-                    value = NA,
-                    min = 0
-                ),
-                
-                numericInput(
-                    "nuclear_mix_emission_factor",
-                    "Share of nuclear generation (%)",
-                    value = NA,
-                    min = 0
-                ),
-                
-                numericInput(
-                    "renewables_mix_emission_factor",
-                    "Share of renewables generation (%)",
-                    value = NA,
-                    min = 0
-                ),
-                
-                textInput(
-                    "remark_emission_factor",
-                    "Remark",
-                    value = NA
-                ),
-                
-                actionButton(
-                    "add_record_grid_mix_emission_factor",
-                    "Add record"
-                ),
-                
-                textOutput("grid_mix_sum_left")
-            )            
-        } else
-            
-            if(input$grid_mix_ui_selection_button == "City-level") {
-                
-                tagList(
-                    
-                    selectInput(
-                        "country_emission_factor",
-                        "Select a country*",
-                        choices = c("Select a country" = "",
-                                    country_list)
-                    ),
-                    
-                    selectInput(
-                        "city_emission_factor",
-                        "Select a city*",
-                        choices = c("Select a city" = "")
-                    ),
-                    
-                    numericInput(
-                        "coal_mix_emission_factor",
-                        "Share of coal generation (%)",
-                        value = NA,
-                        min = 0
-                    ),
-                    
-                    numericInput(
-                        "oil_mix_emission_factor",
-                        "Share of oil generation (%)",
-                        value = NA,
-                        min = 0
-                    ),
-                    
-                    numericInput(
-                        "gas_mix_emission_factor",
-                        "Share of gas generation (%)",
-                        value = NA,
-                        min = 0
-                    ),
-                    
-                    numericInput(
-                        "nuclear_mix_emission_factor",
-                        "Share of nuclear generation (%)",
-                        value = NA,
-                        min = 0
-                    ),
-                    
-                    numericInput(
-                        "renewables_mix_emission_factor",
-                        "Share of renewables generation (%)",
-                        value = NA,
-                        min = 0
-                    ),
-                    
-                    textInput(
-                        "remark_emission_factor",
-                        "Remark",
-                        value = NA
-                    ),
-                    
-                    actionButton(
-                        "add_record_grid_mix_emission_factor",
-                        "Add record"
-                    ),
-                    
-                    textOutput("grid_mix_sum_left")
-                )
-            }        
-        
-    })
     
     # initialise an empty table
     ele_grid_mix_table <- reactiveVal(NULL)
@@ -1825,102 +1701,45 @@ server <- function(input, output, session) {
     # add record workflow
     observeEvent(input$add_record_grid_mix_emission_factor, {
         
-        if(input$grid_mix_ui_selection_button == "Country-level") {
+        # check country input is selected
+        if(
+            !nzchar(input$country_emission_factor)
+        ) {
+            showNotification("Incomeplete record!",
+                             type = "warning")
             
-            # check country input is selected
-            if(
-                !nzchar(input$country_emission_factor)
-            ) {
-                showNotification("Incomeplete record!",
-                                 type = "warning")
-                
-                return()
-            }
+            return()
+        }
+        
+        # check the sum of the mix must not exceed 1
+        if(
+            sum(
+                c(input$coal_mix_emission_factor,
+                  input$oil_mix_emission_factor,
+                  input$gas_mix_emission_factor,
+                  input$nuclear_mix_emission_factor,
+                  input$renewables_emission_factor),
+                na.rm = TRUE
+            ) / 100 > 1
+        ) {
+            showNotification("The sum of mix cannot exceed 1!",
+                             type = "warning")
             
-            # check the sum of the mix must not exceed 1
-            if(
-                sum(
-                    c(input$coal_mix_emission_factor,
-                      input$oil_mix_emission_factor,
-                      input$gas_mix_emission_factor,
-                      input$nuclear_mix_emission_factor,
-                      input$renewables_emission_factor),
-                    na.rm = TRUE
-                ) / 100 > 1
-            ) {
-                showNotification("The sum of mix cannot exceed 1!",
-                                 type = "warning")
-                
-                return()
-            }
-            
-            new_table <- tibble(
-                Country = input$country_emission_factor,
-                City = NA_character_,
-                Coal = input$coal_mix_emission_factor,
-                Oil = input$oil_mix_emission_factor,
-                Gas = input$gas_mix_emission_factor,
-                Nuclear = input$nuclear_mix_emission_factor,
-                Renewables = input$renewables_mix_emission_factor,
-                Remark = input$remark_emission_factor
-            )
-            
-        } else
-            
-            if(input$grid_mix_ui_selection_button == "City-level") {
-                
-                # check both country and city inputs are selected
-                if(
-                    !nzchar(input$country_emission_factor) |
-                    !nzchar(input$city_emission_factor)
-                ) {
-                    showNotification("Incomplete record!",
-                                     type = "warning")
-                    
-                    return()
-                } 
-                
-                # check the sum of the mix must not exceed 1
-                if(
-                    sum(
-                        c(input$coal_mix_emission_factor,
-                          input$oil_mix_emission_factor,
-                          input$gas_mix_emission_factor,
-                          input$nuclear_mix_emission_factor,
-                          input$renewables_emission_factor),
-                        na.rm = TRUE
-                    ) / 100 > 1
-                ) {
-                    showNotification("The sum of mix cannot exceed 1!",
-                                     type = "warning")
-                    
-                    return()
-                }
-                
-                new_table <- tibble(
-                    Country = input$country_emission_factor,
-                    City = input$city_emission_factor,
-                    Coal = input$coal_mix_emission_factor,
-                    Oil = input$oil_mix_emission_factor,
-                    Gas = input$gas_mix_emission_factor,
-                    Nuclear = input$nuclear_mix_emission_factor,
-                    Renewables = input$renewables_mix_emission_factor
-                ) |> 
-                    mutate(
-                        Average = 
-                            (
-                                Coal * universal_grid_mix_ef$Coal
-                                + Oil * universal_grid_mix_ef$Oil
-                                + Gas * universal_grid_mix_ef$Gas
-                                + Nuclear * universal_grid_mix_ef$Nuclear
-                                + Renewables * universal_grid_mix_ef$Renewables
-                            ) 
-                        / 100 # convert from percentage to number
-                        / 1000, # convert from g to kg
-                        .after = Renewables
-                    )
-                
-            }
+            return()
+        }
+        
+        new_table <- tibble(
+            Country = input$country_emission_factor,
+            City = NA_character_,
+            Coal = input$coal_mix_emission_factor,
+            Oil = input$oil_mix_emission_factor,
+            Gas = input$gas_mix_emission_factor,
+            Nuclear = input$nuclear_mix_emission_factor,
+            Renewables = input$renewables_mix_emission_factor,
+            Remark = input$remark_emission_factor
+        )
+        
+        
         
         
         # convert POSIXct and Date variable as numeric
@@ -1995,11 +1814,11 @@ server <- function(input, output, session) {
     # 3. emission factor for scope 1 and 2 all fuels 
     
     
-    ## emission record ####
+    # emission record tab ####
     
     
     
-    ### building table ####
+    # building table
     
     # update the select input field for Id
     observeEvent(building_table_consumption_record(), {
@@ -2084,11 +1903,11 @@ server <- function(input, output, session) {
     
     
     
-    ### vehicle ####
+    # vehicle
     
     
     
-    # render ------------------------------------------------------------------
+    # 4. render ####
     
     # display message to ask user to select an asset type
     
@@ -2191,14 +2010,9 @@ server <- function(input, output, session) {
             selection = "single"
         )
     })
-    
-    
-    
 }
 
 
-
-
-# Run app -----------------------------------------------------------------
+# 5. Run app ####
 shinyApp(ui, server)
 
