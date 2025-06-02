@@ -578,6 +578,18 @@ server <- function(input, output, session) {
                                                 country_list)
                                 ),
                                 
+                                numericInput(
+                                    "starting_year_emission_factor",
+                                    "Enter the starting year",
+                                    value = 2025
+                                ),
+                                
+                                numericInput(
+                                    "ending_year_emission_factor",
+                                    "Enter the ending year",
+                                    value = NA
+                                ),
+                                
                                 textInput(
                                     "remark_emission_factor",
                                     "Remark",
@@ -585,7 +597,7 @@ server <- function(input, output, session) {
                                 ),
                                 
                                 actionButton(
-                                    "add_record_grid_mix_emission_factor",
+                                    "add_record_emission_factor",
                                     "Add record"
                                 )
                             )
@@ -1677,7 +1689,7 @@ server <- function(input, output, session) {
     })
     
     # add new country-specific grid mix table record workflow
-    observeEvent(input$add_record_grid_mix_emission_factor, {
+    observeEvent(input$add_record_emission_factor, {
         
         # check country input is selected
         if(
