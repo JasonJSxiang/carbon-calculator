@@ -88,13 +88,6 @@ dbExecute(
     "CREATE TABLE IF NOT EXISTS ele_grid_mix_table  
     (
     Country TEXT,
-    City TEXT,
-    Coal REAL,
-    Oil REAL,
-    Gas REAL,
-    Nuclear REAL,
-    Renewables REAL,
-    Average REAL,
     Remark TEXT)")
 
 # emission record: building
@@ -170,14 +163,6 @@ city_df <- world.cities |>
     dplyr::distinct(name, .keep_all = TRUE) |>  # keep unique country
     dplyr::arrange(name)
 
-# (testing) a universal emission factor of each energy source
-universal_grid_mix_ef <- tibble(
-    Coal = 350,
-    Oil = 268,
-    Gas = 183,
-    Nuclear = 0,
-    Renewables = 0
-)
 
 # 2. ui ####
 ui <- dashboardPage(
@@ -593,41 +578,6 @@ server <- function(input, output, session) {
                                                 country_list)
                                 ),
                                 
-                                numericInput(
-                                    "coal_mix_emission_factor",
-                                    "Share of coal generation (%)",
-                                    value = NA,
-                                    min = 0
-                                ),
-                                
-                                numericInput(
-                                    "oil_mix_emission_factor",
-                                    "Share of oil generation (%)",
-                                    value = NA,
-                                    min = 0
-                                ),
-                                
-                                numericInput(
-                                    "gas_mix_emission_factor",
-                                    "Share of gas generation (%)",
-                                    value = NA,
-                                    min = 0
-                                ),
-                                
-                                numericInput(
-                                    "nuclear_mix_emission_factor",
-                                    "Share of nuclear generation (%)",
-                                    value = NA,
-                                    min = 0
-                                ),
-                                
-                                numericInput(
-                                    "renewables_mix_emission_factor",
-                                    "Share of renewables generation (%)",
-                                    value = NA,
-                                    min = 0
-                                ),
-                                
                                 textInput(
                                     "remark_emission_factor",
                                     "Remark",
@@ -637,10 +587,7 @@ server <- function(input, output, session) {
                                 actionButton(
                                     "add_record_grid_mix_emission_factor",
                                     "Add record"
-                                ),
-                                
-                                textOutput("grid_mix_sum_left")
-                                
+                                )
                             )
                         )
                         
@@ -656,26 +603,6 @@ server <- function(input, output, session) {
                                 title = "Grid Mix",
                                 id = "grid_mix_emission_factor_table",
                                 DTOutput("ele_grid_mix_table")
-                            ),
-                            tabPanel(
-                                title = "FERA",
-                                id = "FERA_emission_factor_table",
-                                DTOutput("FERA_emission_factor_table")
-                            ),
-                            tabPanel(
-                                title = "Scope 1 and 2",
-                                id = "s1_2_emission_factor_table",
-                                DTOutput("s1_2_emission_factor_table")
-                            )
-                        ),
-                        
-                        tabBox(
-                            width = NULL,
-                            
-                            tabPanel(
-                                title = "Universal Grid Mix EF (g/KWh)",
-                                id = "universal_grid_mix_ef",
-                                tableOutput("universal_grid_mix_ef")
                             )
                         )
                     )
@@ -1745,8 +1672,6 @@ server <- function(input, output, session) {
     
     # emission factor tab ####
     
-    # 1. Electricity grid mix
-    
     # initialise an empty table
     ele_grid_mix_table <- reactiveVal(NULL)
     
@@ -1780,105 +1705,7 @@ server <- function(input, output, session) {
             return()
         }
         
-        # check the sum of the mix must not exceed 1
-        if(
-            sum(
-                c(input$coal_mix_emission_factor,
-                  input$oil_mix_emission_factor,
-                  input$gas_mix_emission_factor,
-                  input$nuclear_mix_emission_factor,
-                  input$renewables_emission_factor),
-                na.rm = TRUE
-            ) / 100 > 1
-        ) {
-            showNotification("The sum of mix cannot exceed 1!",
-                             type = "warning")
-            
-            return()
-        }
-        
-        new_table <- tibble(
-            Country = input$country_emission_factor,
-            City = NA_character_,
-            Coal = input$coal_mix_emission_factor,
-            Oil = input$oil_mix_emission_factor,
-            Gas = input$gas_mix_emission_factor,
-            Nuclear = input$nuclear_mix_emission_factor,
-            Renewables = input$renewables_mix_emission_factor,
-            Remark = input$remark_emission_factor
-        ) 
-        
-        
-        # convert POSIXct and Date variable as numeric
-        new_table <- new_table |>
-            mutate(across(  # 对多列同时进行修改
-                # 选择所有日期时间列
-                .cols = where(~ inherits(., "POSIXct") | inherits(., "Date")), 
-                .fns = as.numeric  # 把这些列转换成数字
-            ))
-        
-        # update the data with the new table
-        dbWriteTable(pool, "ele_grid_mix_table", new_table, append = TRUE)
-        
-        # refresh the table
-        load_grid_mix_emission_factor()
-        
-        # clear the input fields
-        updateSelectInput(
-            session,
-            "country_emission_factor",
-            selected = ""
-        )
-        
-        updateSelectInput(
-            session,
-            "city_emission_factor",
-            selected = ""
-        )
-        
-        updateNumericInput(
-            session,
-            "coal_mix_emission_factor",
-            value = NA
-        )
-        
-        updateNumericInput(
-            session,
-            "oil_mix_emission_factor",
-            value = NA
-        )
-        
-        updateNumericInput(
-            session,
-            "gas_mix_emission_factor",
-            value = NA
-        )
-        
-        updateNumericInput(
-            session,
-            "nuclear_mix_emission_factor",
-            value = NA
-        )
-        
-        updateNumericInput(
-            session,
-            "renewables_mix_emission_factor",
-            value = NA
-        )
-        
-        updateTextInput(
-            session,
-            "remark_emission_factor",
-            value = NA
-        )
-        
-        
     })
-    
-    
-    # 2. FERA values for scope 1 and 2 all fuels
-    
-    # 3. emission factor for scope 1 and 2 all fuels 
     
     
     # emission record tab ####
@@ -1965,19 +1792,6 @@ server <- function(input, output, session) {
         selected_country_grid_mix <- ele_grid_mix_table() |> 
             filter(Country == new_record_country)
         
-        # calculate the grid mix average ef
-        average_ef <- (
-            selected_country_grid_mix$Coal * universal_grid_mix_ef$Coal
-            + selected_country_grid_mix$Oil * universal_grid_mix_ef$Oil
-            + selected_country_grid_mix$Gas * universal_grid_mix_ef$Gas
-            + selected_country_grid_mix$Nuclear * universal_grid_mix_ef$Nuclear
-            + selected_country_grid_mix$Renewables * universal_grid_mix_ef$Renewables
-            # convert from percentage to number and convert from gram to kilogram
-        ) / 100 / 1000 
-        
-        # calculate the LB emission of that consumption record
-        LBEmission <- new_record$Consumption * average_ef
-        
         # format the new_record to fit the emission record table in the DB
         formatted_new_record <- new_record |> 
             select(Id, `Asset Name`, `Fuel Type`) |> 
@@ -1997,10 +1811,6 @@ server <- function(input, output, session) {
                          closeButton = TRUE)
         
     })
-    
-    
-    
-    # vehicle
     
     
     
@@ -2057,43 +1867,6 @@ server <- function(input, output, session) {
         )
     })
     
-    # universal grid mix ef table
-    output$universal_grid_mix_ef <- renderTable({
-        universal_grid_mix_ef
-    })
-    
-    # grid mix sum text output
-    output$grid_mix_sum_left <- renderText({
-        
-        paste("(Remaining share:", 
-              round(
-                  100 - sum(
-                      c(input$coal_mix_emission_factor,
-                        input$oil_mix_emission_factor,
-                        input$gas_mix_emission_factor,
-                        input$nuclear_mix_emission_factor,
-                        input$renewables_mix_emission_factor),
-                      na.rm = TRUE
-                  ),
-                  2
-              ),
-              "%)"
-        )
-    })
-    
-    # FERA table
-    output$FERA_emission_factor_table <- renderDT({
-        datatable(city_df,
-                  selection = "single",
-                  options = list(dom = 't'))
-    })
-    
-    # S1 and S2 table
-    output$s1_2_emission_factor_table <- renderDT({
-        datatable(city_df,
-                  selection = "single",
-                  options = list(dom = 't'))
-    })
     
     ## emission record ####
     
