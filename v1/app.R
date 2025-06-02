@@ -1477,14 +1477,6 @@ server <- function(input, output, session) {
                            "building_consumption_consumption_record",
                            value = NA)
         
-        updateSelectInput(session,
-                          "fuel_select_building_consumption_record",
-                          selected = "")
-        
-        updateSelectInput(session,
-                          "building_unit_consumption_record",
-                          selected = "")
-        
         updateRadioButtons(session,
                            "renewable_yes_no_consumption_record",
                            selected = NA)
@@ -1650,14 +1642,6 @@ server <- function(input, output, session) {
         updateNumericInput(session,
                            "vehicle_consumption_consumption_record",
                            value = NA)
-        
-        updateSelectInput(session,
-                          "fuel_select_vehicle_consumption_record",
-                          selected = "")
-        
-        updateSelectInput(session,
-                          "vehicle_unit_consumption_record",
-                          selected = "")
         
         updateDateRangeInput(session,
                              "vehicle_date_range_consumption_record",
