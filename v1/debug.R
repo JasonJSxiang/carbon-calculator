@@ -169,7 +169,7 @@ ui <- dashboardPage(
     
     # static dashboard header
     dashboardHeader(
-        title = "Carbon Calculator 张译翔",
+        title = "Carbon Calculator by Yixiang Zhang",
         titleWidth = 300
     ),
     
@@ -243,7 +243,7 @@ server <- function(input, output, session) {
             ### home tab ####
             tabItem(
                 tabName = "home_tab",
-                h2("Carbon Calculator 张译翔"),
+                h2("Carbon Calculator by Yixiang Zhang"),
                 
                 fluidRow(
                     column(

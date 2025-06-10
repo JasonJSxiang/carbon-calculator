@@ -1,0 +1,13 @@
+name: carbon_calculator_testing
+title: carbon_calculator_testing
+username: jasonjs
+account: jasonjs
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 14910217
+bundleId: 10427954
+url: https://jasonjs.shinyapps.io/carbon_calculator_testing/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: app_bslib version.R|database/database.sqlite|debug.R
