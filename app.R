@@ -4,6 +4,8 @@ source("pre-ui.R")
 
 # 2. ui -------------------------------------------------------------------
 ui <- page_navbar(
+    theme = bs_theme(bootswatch = "quartz"),
+    
     # static dashboard header
     title = "Carbon Calculator by Yixiang Zhang",
     nav_spacer(),
@@ -44,7 +46,7 @@ server <- function(input, output, session) {
     source("server/emission-record-tab.R", local = TRUE)
     
     
-# 4. render ---------------------------------------------------------------
+    # 4. render ---------------------------------------------------------------
     
     # asset tab
     source("render/asset-tab.R", local = TRUE)
