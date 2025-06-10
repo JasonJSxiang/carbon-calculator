@@ -1,15 +1,3 @@
-library(DBI)
-library(RSQLite)
-library(pool)
-library(shiny)
-library(tidyverse)
-library(DT)
-library(maps)
-library(bslib)
-library(plotly)
-
-# 1. One-off settings ####
-
 ## Initialise database ####
 con <- dbConnect(SQLite(), "database.sqlite")
 
