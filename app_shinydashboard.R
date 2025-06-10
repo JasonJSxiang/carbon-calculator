@@ -5,7 +5,7 @@ library(shiny)
 library(tidyverse)
 library(DT)
 library(maps)
-library(bslib)
+library(shinydashboard)
 library(plotly)
 
 # 1. One-off settings ####
@@ -165,388 +165,45 @@ city_df <- world.cities |>
 
 
 # 2. ui ####
-ui <- page_navbar(
+ui <- dashboardPage(
+    
     # static dashboard header
-    title = "Carbon Calculator by Yixiang Zhang",
-    nav_spacer(),
+    dashboardHeader(
+        title = "Carbon Calculator by Yixiang Zhang",
+        titleWidth = 300
+    ),
     
-    # home tab 
-    nav_panel(
-        title = "Home",
-        icon = icon("home"),
-        
-        layout_column_wrap(
-            width = 1,
-            actionButton(
-                "clear_asset",
-                "Clear Asset Table"
+    # static dashboard sidebar
+    dashboardSidebar(
+        sidebarMenu(
+            menuItem("Home",
+                     tabName = "home_tab",
+                     icon = icon("home"),
+                     selected = TRUE),
+            menuItem("Asset", 
+                     tabName = "asset_tab", 
+                     icon = icon("building")),
+            menuItem("Consumption Record",
+                     tabName = "consumption_record_tab",
+                     icon = icon("table-list")),
+            menuItem("Emission Factor",
+                     tabName = "emission_factor_tab",
+                     icon = icon("clipboard")),
+            menuItem(
+                "Emission Record",
+                tabName = "emission_record_tab",
+                icon = icon("clipboard-user")
             ),
-            
-            actionButton(
-                "clear_consumption_record",
-                "Clear Consumption Record Table"
-            ),
-            
-            actionButton(
-                "clear_grid_mix_emission_factor",
-                "Clear Grid Mix Table"
-            ),
-            
-            actionButton(
-                "clear_all",
-                "CLEAR ALL"
-            )
+            menuItem("Inventories",
+                     tabName = "carbon_inventory_tab",
+                     icon = icon("dashboard"))
         )
     ),
     
-    # asset tab
-    nav_panel(
-        title = "Asset",
-        icon = icon("bars"),
-        
-        layout_sidebar(
-            sidebar = sidebar(
-                page_navbar(
-                    nav_panel(
-                        title = "Building",
-                        icon = icon("building"),
-                        
-                        selectInput(
-                            "country_asset_building",
-                            "Country*",
-                            choices = c("Select a country" = "",
-                                        country_list)
-                        ),
-                        selectInput(
-                            "city_asset_building",
-                            "City",
-                            choices = c("Select a city" = "")
-                        ),
-                        textInput(
-                            "building_asset_name_asset", 
-                            "Asset Name*"
-                        ),
-                        numericInput(
-                            "office_area_asset",
-                            "Occupied Floor Area",
-                            value = NA,
-                            min = 0
-                        ),
-                        selectInput(
-                            "area_unit_asset", "Area Unit",
-                            choices = c(
-                                "Select a unit" = "",
-                                "m2",
-                                "ftsq"),
-                            selected = ""),
-                        checkboxInput(
-                            "subleased_asset", 
-                            "Subleased Asset?", value = FALSE),
-                        selectInput(
-                            "applicable_source_asset",
-                            "Applicable Emission Sources*",
-                            choices = c("Select a unit*" = "", 
-                                        fuel_building),
-                            multiple = TRUE),
-                        actionButton(
-                            "add_record_building_asset",
-                            "Add Record")  
-                    ),
-                    nav_panel(
-                        title = "Vehicle",
-                        icon = icon("car"),
-                        selectInput(
-                            "country_asset_vehicle",
-                            "Country*",
-                            choices = c("Select a country" = "",
-                                        country_list)
-                        ),
-                        selectInput(
-                            "city_asset_vehicle",
-                            "City",
-                            choices = c("Select a city" = "")
-                        ),
-                        textInput(
-                            "vehicle_asset_name_asset", "Asset Name*"),
-                        selectInput(
-                            "vehicle_type_asset", "Vehicle Type*",
-                            choices = c("Select a vehicle type" = "", 
-                                        vehicle_type)),
-                        actionButton(
-                            "add_record_vehicle_asset", 
-                            "Add Record")
-                    )
-                )
-            ),
-            
-            # body content
-            card(
-                page_navbar(
-                    # building table
-                    nav_panel(
-                        title = "Building",
-                        icon = icon("building"),
-                        DTOutput("asset_table_building")
-                    ),
-                    # vehicle table
-                    nav_panel(
-                        title = "Vehicle",
-                        icon = icon("car"),
-                        DTOutput("asset_table_vehicle")
-                    )
-                )
-            )
-        )
-    ),
-    
-    # consumption record tab
-    nav_panel(
-        title = "Consumption",
-        icon = icon("calendar-week"),
-        
-        page_sidebar(
-            sidebar = sidebar(
-                page_navbar(
-                    # building inputs
-                    nav_panel(
-                        title = "Building",
-                        icon = icon("building"),
-                        selectInput(
-                            "building_country_consumption_record",
-                            "Select a country",
-                            choices = ""
-                        ),
-                        selectInput(
-                            "building_asset_consumption_record",
-                            "Select asset*",
-                            choices = ""),
-                        selectInput(
-                            "building_year_consumption_record",
-                            "Select a Reporting Year*",
-                            choices = c("Select a year" = "",
-                                        reporting_year)),
-                        selectInput(
-                            "fuel_select_building_consumption_record",
-                            "Select fuel type*",
-                            choices = c("Select a fuel type" = "")),
-                        numericInput(
-                            "building_consumption_consumption_record",
-                            "Energy consumption*",
-                            value = NA,
-                            min = 0),
-                        selectInput(
-                            "building_unit_consumption_record",
-                            "Select a unit",
-                            choices = c("Select a unit" = "",
-                                        building_fuel_unit)),
-                        dateRangeInput(
-                            "building_date_range_consumption_record", 
-                            "Date Range* (yyyy-mm-dd)"),
-                        textInput(
-                            "building_comment_consumption_record",
-                            "Additional Comment",
-                            value = ""),
-                        uiOutput("renewable_energy_ui"),
-                        uiOutput("renewable_energy_fields_ui"),
-                        actionButton(
-                            "add_building_consumption_record",
-                            "Add record")
-                    ),
-                    
-                    # vehicle inputs
-                    nav_panel(
-                        title = "Vehicle",
-                        icon = icon("car"),
-                        selectInput(
-                            "vehicle_country_consumption_record",
-                            "Select a country",
-                            choices = ""
-                        ),
-                        
-                        selectInput(
-                            "vehicle_asset_consumption_record",
-                            "Select asset*",
-                            choices = ""),
-                        selectInput(
-                            "vehicle_year_consumption_record",
-                            "Select a Reporting Year*",
-                            choices = c("Select a year" = "",
-                                        reporting_year)),
-                        selectInput(
-                            "fuel_select_vehicle_consumption_record",
-                            "Select fuel type*",
-                            choices = c(
-                                "Select a fuel type" = "")),
-                        radioButtons(
-                            "fuel_or_mileage_consumption_record",
-                            "Data Submission Type*",
-                            choices = c("Fuel",
-                                        "Mileage"),
-                            selected = NA),
-                        numericInput(
-                            "vehicle_consumption_consumption_record",
-                            "Consumption / Mileage*",
-                            value = NA,
-                            min = 0),
-                        selectInput(
-                            "vehicle_unit_consumption_record",
-                            "Select a unit*",
-                            choices = c("Select a unit" = "")),
-                        dateRangeInput(
-                            "vehicle_date_range_consumption_record", 
-                            "Date Range* (yyyy-mm-dd)"),
-                        textInput(
-                            "vehicle_comment_consumption_record",
-                            "Additional Comment"),
-                        actionButton(
-                            "add_vehicle_consumption_record",
-                            "Add record")
-                    )
-                )
-            ),
-            
-            card(
-                page_navbar(
-                    # building table
-                    nav_panel(
-                        title = "Building",
-                        icon = icon("building"),
-                        DTOutput("building_table_consumption_record")
-                    ),
-                    # vehicle table
-                    nav_panel(
-                        title = "Vehicle",
-                        icon = icon("car"),
-                        DTOutput("vehicle_table_consumption_record")
-                    )
-                )
-            )
-        )
-        
-    ),
-    
-    # emission factor tab
-    nav_panel(
-        title = "Emission Factor",
-        icon = icon("clipboard"),
-        
-        page_sidebar(
-            sidebar = sidebar(
-                page_navbar(
-                    nav_panel(
-                        title = "Grid Mix",
-                        
-                        selectInput(
-                            "country_emission_factor",
-                            "Select a country*",
-                            choices = c("Select a country" = "",
-                                        country_list)
-                        ),
-                        
-                        numericInput(
-                            "starting_year_emission_factor",
-                            "Enter the starting year",
-                            value = 2025
-                        ),
-                        
-                        numericInput(
-                            "ending_year_emission_factor",
-                            "Enter the ending year",
-                            value = NA
-                        ),
-                        
-                        textInput(
-                            "remark_emission_factor",
-                            "Remark",
-                            value = NA
-                        ),
-                        
-                        actionButton(
-                            "add_record_emission_factor",
-                            "Add record"
-                        )
-                    )
-                )
-            ),
-            
-            card(
-                DTOutput("ele_grid_mix_table")
-            )
-        )
-    ),
-    
-    # emission record tab
-    nav_panel(
-        title = "Emission",
-        icon = icon("smog"),
-        
-        page_sidebar(
-            sidebar = sidebar(
-                page_navbar(
-                    # building
-                    nav_panel(
-                        title = "Building",
-                        icon = icon("building"),
-                        selectInput(
-                            "id_emission_record_building",
-                            "Select an Id",
-                            choices = 
-                                c("Select an Id" = "")
-                        ),
-                        
-                        actionButton(
-                            "add_emission_record_building",
-                            "Calculate"
-                        )
-                    ),
-                    
-                    # vehicle
-                    nav_panel(
-                        title = "Vehicle",
-                        icon = icon("car"),
-                        selectInput(
-                            "id_session_record_vehicle",
-                            "Select an Id",
-                            choices =
-                                c("Select an Id" = "")
-                        ),
-                        
-                        actionButton(
-                            "add_emission_record_vehicle",
-                            "Calculate"
-                        )
-                    )
-                )
-            ),
-            
-            card(
-                page_navbar(
-                    # building
-                    nav_panel(
-                        title = "Building",
-                        icon = icon("building"),
-                        DTOutput("emission_record_building")
-                    ),
-                    # vehicle
-                    nav_panel(
-                        title = "Vehicle",
-                        icon = icon("car"),
-                        DTOutput("emission_record_vehicle")
-                    )
-                )
-            )
-        )
-    ),
-    
-    # inventory tab
-    nav_panel(
-        title = "Inventory",
-        icon = icon("dashboard"),
-        
-        h2("Placeholder")
-    )
-    
+    # dynamic dashboard body
+    dashboardBody(uiOutput("db_body"))
 )
+
 
 # 3. Server ####
 server <- function(input, output, session) {
@@ -575,7 +232,497 @@ server <- function(input, output, session) {
         load_emission_record_building()
         load_grid_mix_emission_factor()
     }    
-  
+    
+    
+    
+    ## Dashboard body dynamic ui ####
+    
+    # run the dynamic ui once when the app starts
+    output$db_body <- renderUI(
+        tabItems(
+            ### home tab ####
+            tabItem(
+                tabName = "home_tab",
+                h2("Carbon Calculator by Yixiang Zhang"),
+                
+                fluidRow(
+                    column(
+                        width = 2,
+                        
+                        actionButton(
+                            "clear_asset",
+                            "Clear Asset Table"
+                        ),
+                        
+                        actionButton(
+                            "clear_consumption_record",
+                            "Clear Consumption Record Table"
+                        ),
+                        
+                        actionButton(
+                            "clear_grid_mix_emission_factor",
+                            "Clear Grid Mix Table"
+                        ),
+                        
+                        actionButton(
+                            "clear_all",
+                            "CLEAR ALL"
+                        )
+                    )
+                )
+                
+                
+                
+            ),
+            
+            ### asset tab ####
+            tabItem(
+                tabName = "asset_tab",
+                
+                fluidRow(
+                    # inputs tab box
+                    column(
+                        width = 3,
+                        
+                        tabBox(
+                            title = NULL,
+                            id = "asset_inputs_box",
+                            width = NULL,
+                            
+                            # building
+                            tabPanel(
+                                id = "building_inputs_asset", 
+                                title = "Building",
+                                selectInput(
+                                    "country_asset_building",
+                                    "Country*",
+                                    choices = c("Select a country" = "",
+                                                country_list)
+                                ),
+                                selectInput(
+                                    "city_asset_building",
+                                    "City",
+                                    choices = c("Select a city" = "")
+                                ),
+                                textInput(
+                                    "building_asset_name_asset", 
+                                    "Asset Name*"
+                                ),
+                                numericInput(
+                                    "office_area_asset",
+                                    "Occupied Floor Area",
+                                    value = NA,
+                                    min = 0
+                                ),
+                                selectInput(
+                                    "area_unit_asset", "Area Unit",
+                                    choices = c(
+                                        "Select a unit" = "",
+                                        "m2",
+                                        "ftsq"),
+                                    selected = ""),
+                                checkboxInput(
+                                    "subleased_asset", 
+                                    "Subleased Asset?", value = FALSE),
+                                selectInput(
+                                    "applicable_source_asset",
+                                    "Applicable Emission Sources*",
+                                    choices = c("Select a unit*" = "", 
+                                                fuel_building),
+                                    multiple = TRUE),
+                                actionButton(
+                                    "add_record_building_asset",
+                                    "Add Record")        
+                            ),
+                            
+                            # vehicle
+                            tabPanel(
+                                id = "vehicle_inputs_asset",
+                                title = "Vehicle",
+                                selectInput(
+                                    "country_asset_vehicle",
+                                    "Country*",
+                                    choices = c("Select a country" = "",
+                                                country_list)
+                                ),
+                                selectInput(
+                                    "city_asset_vehicle",
+                                    "City",
+                                    choices = c("Select a city" = "")
+                                ),
+                                textInput(
+                                    "vehicle_asset_name_asset", "Asset Name*"),
+                                selectInput(
+                                    "vehicle_type_asset", "Vehicle Type*",
+                                    choices = c("Select a vehicle type" = "", 
+                                                vehicle_type)),
+                                actionButton(
+                                    "add_record_vehicle_asset", 
+                                    "Add Record")
+                            )
+                        )
+                    ),
+                    
+                    # table tab box
+                    column(
+                        width = 9,
+                        
+                        tabBox(
+                            title = NULL,
+                            id = "asset_table_asset",
+                            width = NULL,
+                            
+                            # building 
+                            tabPanel(
+                                
+                                id = "building_table_asset",
+                                title = "Building",
+                                div(
+                                    style = "overflow-x: auto; min-height: 100px;",  
+                                    DTOutput("asset_table_building")
+                                )
+                                
+                            ),
+                            
+                            # vehicle
+                            tabPanel(
+                                
+                                id = "vehicle_table_asset",
+                                title = "Vehciel",
+                                div(
+                                    style = "overflow-x: auto; min-height: 100px;",  
+                                    DTOutput("asset_table_vehicle")
+                                )
+                                
+                            )
+                            
+                        )
+                    )
+                )
+            ),
+            
+            ### consumption record tab ####
+            tabItem(
+                tabName = "consumption_record_tab",
+                
+                fluidRow(
+                    
+                    # inputs tab box
+                    column(
+                        width = 3,
+                        
+                        tabBox(
+                            title = NULL,
+                            id = "consumption_record_inputs",
+                            width = NULL,
+                            
+                            # building 
+                            tabPanel(
+                                title = "Building",
+                                id = "building_inputs_consumption_record",
+                                
+                                selectInput(
+                                    "building_country_consumption_record",
+                                    "Select a country",
+                                    choices = ""
+                                ),
+                                
+                                selectInput(
+                                    "building_asset_consumption_record",
+                                    "Select asset*",
+                                    choices = ""),
+                                selectInput(
+                                    "building_year_consumption_record",
+                                    "Select a Reporting Year*",
+                                    choices = c("Select a year" = "",
+                                                reporting_year)),
+                                selectInput(
+                                    "fuel_select_building_consumption_record",
+                                    "Select fuel type*",
+                                    choices = c("Select a fuel type" = "")),
+                                numericInput(
+                                    "building_consumption_consumption_record",
+                                    "Energy consumption*",
+                                    value = NA,
+                                    min = 0),
+                                selectInput(
+                                    "building_unit_consumption_record",
+                                    "Select a unit",
+                                    choices = c("Select a unit" = "",
+                                                building_fuel_unit)),
+                                dateRangeInput(
+                                    "building_date_range_consumption_record", 
+                                    "Date Range* (yyyy-mm-dd)"),
+                                textInput(
+                                    "building_comment_consumption_record",
+                                    "Additional Comment",
+                                    value = ""),
+                                uiOutput(
+                                    "renewable_energy_ui"),
+                                uiOutput(
+                                    "renewable_energy_fields_ui"),
+                                actionButton(
+                                    "add_building_consumption_record",
+                                    "Add record")
+                            ),
+                            
+                            # vehicle 
+                            tabPanel(
+                                title = "Vehicle",
+                                id = "vehicle_inputs_consumption_record",
+                                
+                                selectInput(
+                                    "vehicle_country_consumption_record",
+                                    "Select a country",
+                                    choices = ""
+                                ),
+                                
+                                selectInput(
+                                    "vehicle_asset_consumption_record",
+                                    "Select asset*",
+                                    choices = ""),
+                                selectInput(
+                                    "vehicle_year_consumption_record",
+                                    "Select a Reporting Year*",
+                                    choices = c("Select a year" = "",
+                                                reporting_year)),
+                                selectInput(
+                                    "fuel_select_vehicle_consumption_record",
+                                    "Select fuel type*",
+                                    choices = c(
+                                        "Select a fuel type" = "")),
+                                radioButtons(
+                                    "fuel_or_mileage_consumption_record",
+                                    "Data Submission Type*",
+                                    choices = c("Fuel",
+                                                "Mileage"),
+                                    selected = NA),
+                                numericInput(
+                                    "vehicle_consumption_consumption_record",
+                                    "Consumption / Mileage*",
+                                    value = NA,
+                                    min = 0),
+                                selectInput(
+                                    "vehicle_unit_consumption_record",
+                                    "Select a unit*",
+                                    choices = c("Select a unit" = "")),
+                                dateRangeInput(
+                                    "vehicle_date_range_consumption_record", 
+                                    "Date Range* (yyyy-mm-dd)"),
+                                textInput(
+                                    "vehicle_comment_consumption_record",
+                                    "Additional Comment"),
+                                actionButton(
+                                    "add_vehicle_consumption_record",
+                                    "Add record")
+                            )
+                            
+                        )
+                    ),
+                    
+                    # table tab box
+                    
+                    column(
+                        width = 9,
+                        
+                        tabBox(
+                            title = "Consumption Record",
+                            id = "consumption_record_table",
+                            width = NULL,
+                            
+                            # building
+                            tabPanel(
+                                title = "Building",
+                                id = "building_consumption_record_table",
+                                div(
+                                    style = "overflow-x: auto; min-height: 100px;",  
+                                    DTOutput("building_table_consumption_record")
+                                )
+                            ),
+                            
+                            # vehicle
+                            tabPanel(
+                                title = "Vehicle",
+                                id = "vehicle_consumption_record_table",
+                                div(
+                                    style = "overflow-x: auto; min_height: 100px:",
+                                    DTOutput("vehicle_table_consumption_record")
+                                )
+                            )
+                            
+                        )
+                    )
+                    
+                )
+            ),
+            
+            ### emission factor tab ####
+            tabItem(
+                tabName = "emission_factor_tab",
+                
+                fluidRow(
+                    column(
+                        width = 3,
+                        
+                        tabBox(
+                            width = NULL,
+                            
+                            tabPanel(
+                                title = "Grid Mix",
+                                id = "grid_mix_input_emission_factor",
+                                
+                                selectInput(
+                                    "country_emission_factor",
+                                    "Select a country*",
+                                    choices = c("Select a country" = "",
+                                                country_list)
+                                ),
+                                
+                                numericInput(
+                                    "starting_year_emission_factor",
+                                    "Enter the starting year",
+                                    value = 2025
+                                ),
+                                
+                                numericInput(
+                                    "ending_year_emission_factor",
+                                    "Enter the ending year",
+                                    value = NA
+                                ),
+                                
+                                textInput(
+                                    "remark_emission_factor",
+                                    "Remark",
+                                    value = NA
+                                ),
+                                
+                                actionButton(
+                                    "add_record_emission_factor",
+                                    "Add record"
+                                )
+                            )
+                        )
+                        
+                    ),
+                    
+                    column(
+                        width = 9,
+                        
+                        tabBox(
+                            width = NULL,
+                            
+                            tabPanel(
+                                title = "Grid Mix",
+                                id = "grid_mix_emission_factor_table",
+                                DTOutput("ele_grid_mix_table")
+                            )
+                        )
+                    )
+                    
+                )
+            ),
+            
+            ### emission record tab ####
+            tabItem(
+                tabName = "emission_record_tab",
+                
+                fluidRow(
+                    column(
+                        width = 12,
+                        
+                        tabBox(
+                            width = NULL,
+                            title = NULL,
+                            id = "emission_record_inputs",
+                            
+                            tabPanel(
+                                title = "Buidling",
+                                id = "building_emission_record_tab",
+                                
+                                selectInput(
+                                    "id_emission_record_building",
+                                    "Select an Id",
+                                    choices = 
+                                        c("Select an Id" = "")
+                                ),
+                                
+                                actionButton(
+                                    "add_emission_record_building",
+                                    "Calculate"
+                                )
+                                
+                            ),
+                            
+                            tabPanel(
+                                title = "Vehicle",
+                                id = "vehicle_emission_record_tab",
+                                
+                                selectInput(
+                                    "id_session_record_vehicle",
+                                    "Select an Id",
+                                    choices =
+                                        c("Select an Id" = "")
+                                ),
+                                
+                                actionButton(
+                                    "add_emission_record_vehicle",
+                                    "Calculate"
+                                )
+                            )
+                        ),
+                        
+                        
+                    ),
+                    
+                    column(
+                        width = 12,
+                        
+                        tabBox(
+                            title = "Emission Record",
+                            id = "emission_record_table",
+                            width = NULL,
+                            
+                            # building
+                            tabPanel(
+                                title = "Building",
+                                id = "building_emission_record_table",
+                                div(
+                                    style = "overflow-x: auto; min-height: 100px;",    
+                                    DTOutput("emission_record_building")
+                                )
+                            ),
+                            
+                            # vehicle
+                            tabPanel(
+                                title = "Vehicle",
+                                id = "vehicle_emission_record_table",
+                                div(
+                                    style = "overflow-x: auto; min-height: 100px;",
+                                    DTOutput("emission_record_vehicle")
+                                )
+                            )
+                        )
+                    )
+                )
+                
+            ),
+            
+            ### carbon inventory tab ####
+            tabItem(
+                tabName = "carbon_inventory_tab",
+                
+                fluidRow(
+                    
+                    h2("Placeholder")
+                    
+                )
+                
+            )
+        )
+    )
+    
+    
+    
     # Dashboard body server ####
     
     ## home tab ####
