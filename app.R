@@ -11,7 +11,7 @@ library(plotly)
 # 1. One-off settings ####
 
 ## Initialise database ####
-con <- dbConnect(SQLite(), "database/database.sqlite")
+con <- dbConnect(SQLite(), "database.sqlite")
 
 # building asset
 dbExecute(
@@ -212,7 +212,7 @@ server <- function(input, output, session) {
     ## DB connection setting ####
     pool <- dbPool(
         SQLite(),
-        dbname = "database/database.sqlite"
+        dbname = "database.sqlite"
     )
     
     # disconnect the pool when ending the session
