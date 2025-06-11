@@ -1,13 +1,14 @@
-# building table
 
-# update the select input field to match the list of consumption record Id
+# building ----------------------------------------------------------------
+
+
+# update the select input field to update the choices
+# with a list of existing consumption record Id
 observeEvent(building_table_consumption_record(), {
+    # make sure that there are records in the building consumption record table
     req(
-        nrow(
-            building_table_consumption_record()
-        ) > 0 # make sure nrow is greater than 0
+        nrow(building_table_consumption_record()) > 0 
     )
-    
     
     # get the Id list of building consumption records
     id_list <- building_table_consumption_record() |>
@@ -21,6 +22,18 @@ observeEvent(building_table_consumption_record(), {
             id_list
         )
     )
+})
+
+# observe the selected Id to display the asset name of the selected Id
+selected_building_asset <- reactiveVal(NULL)
+
+observeEvent(input$id_emission_record_building, {
+    # get the asset name of the selected Id
+    asset_name <- building_table_consumption_record() |> 
+        filter(Id == input$id_emission_record_building) |> 
+        pull(`Asset Name`)
+    
+    selected_building_asset(asset_name)
 })
 
 # initial table
@@ -53,7 +66,7 @@ observeEvent(input$add_emission_record_building, {
     req(nzchar(input$id_emission_record_building))
     
     # extract the row with the selected Id
-    new_record <- building_table_consumption_record() |> 
+    new_record <<- building_table_consumption_record() |> 
         filter(Id == input$id_emission_record_building)
     
     # extract the country of that consumption record
@@ -61,7 +74,7 @@ observeEvent(input$add_emission_record_building, {
         pull(Country)
     
     # get a country list in the ele grid mix table
-    country_list <- ele_grid_mix_table() |> 
+    country_list <- emission_factor_grid() |> 
         dplyr::distinct(Country) |> 
         pull(Country)
     
@@ -76,15 +89,37 @@ observeEvent(input$add_emission_record_building, {
         return()
     } else {}
     
-    # get the grid mix of the selected country
-    selected_country_grid_mix <- ele_grid_mix_table() |> 
-        filter(Country == new_record_country)
+    # get the grid mix ef of the selected country
+    selected_country_grid_ef <- emission_factor_grid() |> 
+        filter(Country == new_record_country) |> 
+        pull(`Emission Factor`)
+    
+    # get the consumption of the selected record
+    selected_record_consumption <- new_record$Consumption
+    
+    # calculate the LB emission
+    LBEmission <- selected_country_grid_ef*selected_record_consumption / 1000
     
     # format the new_record to fit the emission record table in the DB
     formatted_new_record <- new_record |> 
         select(Id, `Asset Name`, `Fuel Type`) |> 
-        mutate(`LB Emission` = LBEmission) |> 
+        mutate(`LB Emission` = LBEmission,
+               `Start Date` = new_record$`Start Date`,
+               `End Date` = new_record$`End Date`,
+               `Creation Time` = Sys.time()) |> 
         rename("Consumption Record Id" = "Id")
+    
+    # check if a record with the same consumption record Id already exists
+    if(formatted_new_record$`Consumption Record Id` %in% 
+       emission_record_building()$`Consumption Record Id`) {
+        showNotification(
+            "Consumption record already exists",
+            type = "warning"
+        )
+        
+        return()
+        
+    } else {}
     
     # update the reactive value with new record
     dbWriteTable(pool,
@@ -93,6 +128,13 @@ observeEvent(input$add_emission_record_building, {
     
     # refresh the table
     load_emission_record_building()
+    
+    # clear the input fields
+    updateSelectInput(
+        session,
+        "id_emission_record_building",
+        selected = ""
+    )
     
     showNotification("New building emission record added", 
                      type = "message",

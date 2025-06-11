@@ -1,9 +1,9 @@
 nav_panel(
     title = "Consumption",
-    icon = icon("calendar-week"),
     
     page_sidebar(
         sidebar = sidebar(
+            title = "Inputs",
             page_navbar(
                 # building inputs
                 nav_panel(

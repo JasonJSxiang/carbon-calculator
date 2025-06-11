@@ -70,13 +70,17 @@ dbExecute(
           \"Additional Comment\" TEXT,
           \"Creation Time\" INTEGER)")
 
-# emission factor: grid mix
+# emission factor 
 dbExecute(
-    con, 
-    "CREATE TABLE IF NOT EXISTS ele_grid_mix_table  
+    con,
+    "CREATE TABLE IF NOT EXISTS emission_factor_grid
     (
+    Id INTEGER PRIMARY KEY,
     Country TEXT,
-    Remark TEXT)")
+    \"Emission Factor\" REAL,
+    \"Creation Time\" INTEGER
+    )"
+)
 
 # emission record: building
 dbExecute(

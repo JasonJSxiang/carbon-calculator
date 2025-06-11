@@ -37,15 +37,34 @@ observeEvent(input$clear_consumption_record, {
 })
 
 # clear grid mix table
-observeEvent(input$clear_grid_mix_emission_factor, {
+observeEvent(input$clear_emission_factor_grid, {
     dbExecute(
-        pool, "DELETE FROM ele_grid_mix_table"
+        pool, "DELETE FROM emission_factor_grid"
     )
     dbExecute(pool, "VACUUM")  # 清理空间
     
-    load_grid_mix_emission_factor()
+    load_emission_factor_grid()
     
-    showNotification("Grid Mix table cleared!",
+    showNotification("Emission factor table cleared!",
+                     type = "message")
+})
+
+# clear emission record table
+observeEvent(input$clear_emission_record_table, {
+    dbExecute(
+        pool, "DELETE FROM emission_record_building"
+    )
+    
+    dbExecute(
+        pool, "DELETE FROM emission_record_vehicle"
+    )
+    
+    dbExecute(pool, "VACUUM")
+    
+    load_emission_record_building()
+    # load_emission_record_vehicle()
+    
+    showNotification("Emission record table cleared!",
                      type = "message")
 })
 

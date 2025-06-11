@@ -1,9 +1,9 @@
 nav_panel(
     title = "Asset",
-    icon = icon("bars"),
     
     layout_sidebar(
         sidebar = sidebar(
+            title = "Inputs",
             page_navbar(
                 nav_panel(
                     title = "Building",

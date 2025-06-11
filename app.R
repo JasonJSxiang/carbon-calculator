@@ -14,7 +14,7 @@ source("global.R")
 
 # 2. ui -------------------------------------------------------------------
 ui <- page_navbar(
-    theme = bs_theme(bootswatch = "quartz"),
+    theme = bs_theme(bootswatch = "minty"),
     
     # static dashboard header
     title = "Carbon Calculator by Yixiang Zhang",
@@ -39,19 +39,14 @@ ui <- page_navbar(
 server <- function(input, output, session) {
     # server config
     source("server/config.R", local = TRUE)
-    
     # home tab
     source("server/home-tab.R", local = TRUE)
-    
     # asset tab
     source("server/asset-tab.R", local = TRUE)
-    
     # consumption record tab
     source("server/consumption-record-tab.R", local = TRUE)
-    
     # emission factor tab
-    source("server/emission-record-tab.R", local = TRUE)
-    
+    source("server/emission-factor-tab.R", local = TRUE)
     # emission record tab
     source("server/emission-record-tab.R", local = TRUE)
     
@@ -60,13 +55,10 @@ server <- function(input, output, session) {
     
     # asset tab
     source("render/asset-tab.R", local = TRUE)
-    
     # consumption record tab
     source("render/consumption-record-tab.R", local = TRUE)
-    
     # emission factor tab
     source("render/emission-factor-tab.R", local = TRUE)
-    
     # emission record tab
     source("render/emission-record-tab.R", local = TRUE)
 }
