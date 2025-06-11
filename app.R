@@ -10,7 +10,7 @@ library(plotly)
 
 
 # 1. Preliminary setting --------------------------------------------------
-source("pre-ui.R")
+source("global.R")
 
 # 2. ui -------------------------------------------------------------------
 ui <- page_navbar(
