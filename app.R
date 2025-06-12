@@ -7,6 +7,8 @@ library(DT)
 library(maps)
 library(bslib)
 library(plotly)
+library(leaflet)
+library(leaflet.extras)
 
 
 # 1. Preliminary setting --------------------------------------------------
@@ -49,6 +51,8 @@ server <- function(input, output, session) {
     source("server/emission-factor-tab.R", local = TRUE)
     # emission record tab
     source("server/emission-record-tab.R", local = TRUE)
+    # inventory tab
+    source("server/inventory-tab.R", local = TRUE)
     
     
     # 4. render ---------------------------------------------------------------
@@ -61,7 +65,10 @@ server <- function(input, output, session) {
     source("render/emission-factor-tab.R", local = TRUE)
     # emission record tab
     source("render/emission-record-tab.R", local = TRUE)
+    # inventory tab
+    source("render/inventory-tab.R", local = TRUE)
 }
+
 
 
 # 5. Run app ####

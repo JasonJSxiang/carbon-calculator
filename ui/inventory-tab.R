@@ -2,31 +2,40 @@ nav_panel(
     title = "Inventory",
     icon = icon("dashboard"),
     
-    page_fluid(
-        card(
-            fg = "lightpink",
+    page_sidebar(
+        sidebar = sidebar(
+            title = "Inputs",
             
-            layout_column_wrap(
-                width = 1 / 2,
-                max_height = "100px",
-                card_body(
-                    selectInput(
-                        "country_inventory",
-                        label = NULL,
-                        choices = c("Select a country" = "")
-                    ),
-                ),
-                card_body(
-                    selectInput(
-                        "year_inventory",
-                        label = NULL,
-                        choices = c("Select a reporting year" = "")
-                    )
-                )
+            selectInput(
+                "country_inventory",
+                label = NULL,
+                choices = c("Select a country" = "")
+            ),
+            
+            
+            selectInput(
+                "year_inventory",
+                label = NULL,
+                choices = c("Select a reporting year" = "")
             )
         ),
         card(
-            h2("Placeholder for a table")
+            DTOutput("annual_inventory"),
+            full_screen = TRUE
+        ),
+        
+        layout_column_wrap(
+            width = 1 / 2,
+            card(
+                card_header("Location(s) on map"),
+                leafletOutput("map_inventory"),
+                full_screen = TRUE
+            ),
+            card(
+                plotlyOutput("monthly_inventory"),
+                full_screen = TRUE
+            ),
+            
         )
     )
 )

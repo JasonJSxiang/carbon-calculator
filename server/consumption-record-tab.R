@@ -271,9 +271,20 @@ observe({load_consumption_record_building()})
 
 # Add new record: Building
 observeEvent(input$add_building_consumption_record, {
+    
+    # obtain the city from the asset record
+    selected_city <- asset_table_building() |> 
+        filter(
+            Country == input$building_country_consumption_record,
+            `Asset Name` == input$building_asset_consumption_record
+        ) |> 
+        dplyr::distinct(City) |> 
+        pull(City)
+    
     # create a new record with the submitted values
     new_record <- tibble(
         "Country" = input$building_country_consumption_record,
+        "City" = selected_city,
         "Asset Name" = input$building_asset_consumption_record,
         "Reporting Year" = input$building_year_consumption_record,
         "Fuel Type" = input$fuel_select_building_consumption_record,
