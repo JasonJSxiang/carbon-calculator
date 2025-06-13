@@ -8,15 +8,20 @@ nav_panel(
             
             selectInput(
                 "country_inventory",
-                label = NULL,
+                label = "Select a country",
                 choices = c("Select a country" = "")
             ),
             
-            
             selectInput(
                 "year_inventory",
-                label = NULL,
+                label = "Select a reporting year",
                 choices = c("Select a reporting year" = "")
+            ),
+            
+            selectInput(
+                "asset_inventory",
+                label = "Select an asset",
+                choices = c("Select an asset" = "")
             )
         ),
         card(

@@ -47,22 +47,43 @@ observeEvent(input$country_inventory, {
     )
 })
 
+observeEvent(input$year_inventory, {
+    
+    # get the unique list of asset in the managed table
+    asset_list <- merged_table() |> 
+        filter(Country == input$country_inventory,
+               `Reporting Year` == input$year_inventory) |> 
+        distinct(`Asset Name_emi`) |> 
+        filter(`Asset Name_emi` != "NA") |> 
+        pull(`Asset Name_emi`)
+    
+    updateSelectInput(
+        session,
+        "asset_inventory",
+        choices = c("Select an asset" = "",
+                    asset_list)
+    )
+})
 
-# tables ------------------------------------------------------------------
+
+# plots ------------------------------------------------------------------
 
 monthly_inventory <- reactive({
-    req(nzchar(input$country_inventory) & nzchar(input$year_inventory))
+    req(nzchar(input$country_inventory) & 
+            nzchar(input$year_inventory) &
+            nzchar(input$asset_inventory))
     
     df <- merged_table() |> 
         filter(Country == input$country_inventory,
-               `Reporting Year` == input$year_inventory) |> 
+               `Reporting Year` == input$year_inventory,
+               `Asset Name_emi` == input$asset_inventory) |> 
         mutate(Month = factor(month(`Start Date_emi`))) |> 
         group_by(Country, Month) |> 
         summarise(`LB Emission` = sum(`LB Emission`, na.rm = TRUE))
     
     plot <- ggplot(df, aes(x = Month, y = `LB Emission`)) +
-        geom_col(aes(fill = Month)) +  # Fill moved inside aes() for consistency
-        geom_line(aes(group = 1), color = "darkred", linewidth = 0.5) +  # Added group=1 for single line
+        geom_col(aes(fill = -`LB Emission`), width = 0.5) + 
+        geom_line(aes(group = 1), color = "darkred", linewidth = 0.5) +  # Added group = 1 for single line
         theme_minimal() +
         theme(legend.position = "none") +
         labs(x = "Month", y = "Location-Based Emission (kgCO2e)") +
@@ -76,21 +97,26 @@ monthly_inventory <- reactive({
 
 map_inventory <- reactive({
     
-    # create the df for mapping
-    df <- merged_table() |> 
-        filter(Country == input$country_inventory,
-               `Reporting Year` == input$year_inventory) |> 
-        group_by(Country, City) |> 
-        summarise(`LB Emission` = sum(`LB Emission`, na.rm = TRUE))
-    
-    # calculate the total annual emission to be used as label in the map
-    total_emission <- paste0(sum(df$`LB Emission`), "kgCO2e")
-    
-    # extract the city name 
     if(
+        # country, reporting year, and asset are selected
         nzchar(input$country_inventory) &
-        nzchar(input$year_inventory)
+        nzchar(input$year_inventory) &
+        nzchar(input$asset_inventory)
     ) {
+        # create the df for mapping
+        df <- merged_table() |> 
+            filter(Country == input$country_inventory,
+                   `Reporting Year` == input$year_inventory,
+                   `Asset Name_emi` == input$asset_inventory) |> 
+            group_by(Country, City) |> 
+            summarise(`LB Emission` = sum(`LB Emission`, na.rm = TRUE))
+        
+        # calculate the total annual emission to be used as label in the map
+        # (at city level)
+        total_emission <- paste0(df$City, ": ", 
+                                 round(sum(df$`LB Emission`)), 
+                                 "kgCO2e")
+        
         city_name <- df |> 
             distinct(City) |> 
             pull(City)
@@ -98,7 +124,7 @@ map_inventory <- reactive({
         leaflet(world.cities |> 
                     dplyr::filter(
                         country.etc == input$country_inventory,
-                        name == city_name
+                        name %in% city_name
                     )
         ) |> 
             addTiles() |> 
@@ -108,10 +134,60 @@ map_inventory <- reactive({
                        lng  = ~long,
                        label = total_emission)
         
-    } else {
-        leaflet(world.cities) |> 
+    } else if( 
+        # only country and reporting year are selected, the map will
+        # display at country level but also show markers of the included cities
+        nzchar(input$country_inventory) &
+        nzchar(input$year_inventory)
+    ) {
+        
+        # create the df for mapping
+        df <- merged_table() |> 
+            filter(Country == input$country_inventory,
+                   `Reporting Year` == input$year_inventory) |> 
+            group_by(Country, City) |> 
+            summarise(`LB Emission` = sum(`LB Emission`, na.rm = TRUE))
+        
+        city_name <- df |> 
+            distinct(City) |> 
+            pull(City)
+        
+        # df for markers
+        df_markers <- world.cities |> 
+            filter(
+                country.etc == input$country_inventory,
+                name %in% city_name
+            ) |> 
+            left_join(df, by = c("name" = "City")) |> 
+            mutate(label = paste0(name, ": ",
+                                  round(`LB Emission`),
+                                  "kgCO2e"))
+        
+        # draw the graph
+        leaflet(world.cities |> 
+                    dplyr::filter(
+                        country.etc == input$country_inventory,
+                        name %in% city_name
+                    )
+        ) |> 
             addTiles() |> 
+            addScaleBar() |> 
+            addSearchOSM() |> 
+            addMarkers(
+                data = df_markers,
+                lat = ~lat, 
+                lng  = ~long,
+                label = ~label)
+        
+    } else {
+        # none is selected or only country is selected
+        leaflet(world.cities) |> 
+        addTiles() |> 
             addScaleBar() |> 
             addSearchOSM()
     }
 })
+
+
+
+
