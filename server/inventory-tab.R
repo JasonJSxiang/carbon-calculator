@@ -181,12 +181,17 @@ map_inventory <- reactive({
         
     } else {
         # none is selected or only country is selected
-        leaflet(world.cities) |> 
-        addTiles() |> 
+        leaflet(world.cities,
+                options = leafletOptions(
+                    maxBounds = list(c(-90, -180),c(90, 180))
+                )) |> 
+            addTiles() |> 
             addScaleBar() |> 
             addSearchOSM()
     }
 })
+
+
 
 
 

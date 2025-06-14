@@ -32,8 +32,9 @@ nav_panel(
         layout_column_wrap(
             width = 1 / 2,
             card(
+                id = "map_card_inventory",
                 card_header("Location(s) on map"),
-                leafletOutput("map_inventory"),
+                leafletOutput("map_inventory", height = "100%"),
                 full_screen = TRUE
             ),
             card(

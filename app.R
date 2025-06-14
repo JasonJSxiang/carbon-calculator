@@ -20,6 +20,7 @@ ui <- page_navbar(
     
     # static dashboard header
     title = "Carbon Calculator by Yixiang Zhang",
+    nav_item(input_dark_mode()),
     nav_spacer(),
     
     # home tab 
